@@ -46,9 +46,14 @@ for more examples.
 
 ## General
 
-Note that the methods below can be called either as
+Note that by default the methods below can be called either as
 `server.people.xxx( arg1, arg2, ... )` or
 `server.xxx( 'people', arg1, arg2, ... )`.
+
+To reduce some memory requirements, however, one may supply
+`noServerMethods: true` as part of options supplied to `db.open()`
+and during then only the second method signature above can be
+used.
 
 ### Adding items
 

@@ -285,12 +285,14 @@ var module;
             return this.filter();
         };
     };
-    var Server = function (db, name) {
+    var Server = function (db, name, noServerMethods) {
         this.db = db;
         this.name = name;
         this.closed = false;
+        if (noServerMethods) {
+            return;
+        }
         var that = this;
-
         var i, il;
         for (i = 0, il = db.objectStoreNames.length; i < il; i++) {
             (function (storeName) {
@@ -547,9 +549,9 @@ var module;
         }
     };
 
-    var open = function (e, server /*, version, schema*/) {
+    var open = function (e, server, noServerMethods /*, version, schema*/) {
         var db = e.target.result;
-        var s = new Server(db, server);
+        var s = new Server(db, server, noServerMethods);
 
         dbCache[server] = db;
 
@@ -567,13 +569,13 @@ var module;
                         target: {
                             result: dbCache[options.server]
                         }
-                    }, options.server, options.version, options.schema).
+                    }, options.server, options.noServerMethods).
                     then(resolve, reject);
                 } else {
                     request = getIndexedDB().open(options.server, options.version);
 
                     request.onsuccess = function (e) {
-                        open(e, options.server, options.version, options.schema).
+                        open(e, options.server, options.noServerMethods).
                             then(resolve, reject);
                     };
 
