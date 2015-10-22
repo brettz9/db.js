@@ -1,6 +1,6 @@
 /*global window, console*/
 /*jslint vars:true*/
-/*eslint no-magic-numbers: 0*/
+/*eslint no-magic-numbers: 0 */
 (function ( db , describe , it , expect , beforeEach , afterEach ) {
     'use strict';
 

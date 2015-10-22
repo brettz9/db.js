@@ -1,5 +1,6 @@
 /*global Promise, define, window*/
 /*jslint vars:true, continue:true*/
+/*eslint no-loop-func: 0, no-unused-vars: 0, guard-for-in: 0*/
 var module;
 (function ( window ) {
     'use strict';
