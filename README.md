@@ -85,7 +85,7 @@ server.people.clear()
 ### Getting a single object by ID
 
 ```js
-	server.people.query( 'firstName' , 'Aaron' )
+	server.people.get(5)
 	      .execute()
 	      .then( function ( results ) {
 	          // do something with the results
@@ -125,8 +125,26 @@ All ranges supported by IDBKeyRange can be used.
 	          //do something with the results
 	      } );
 
-	server.people.query( 'indexName' )
-	      .bound( 'answer', 30, 50 )
+	server.people.query( 'answer' )
+	      .bound( 30, 50 )
+	      .then( function ( results ) {
+	          //do something with the results
+	      } );
+```
+
+MongoDB-style ranges (as implemented in
+[idb-range](https://github.com/treojs/idb-range)-driven libraries)
+are also supported:
+
+```js
+	server.people.query( 'firstName' )
+	      .range({eq: 'Aaron'})
+	      .then( function ( results ) {
+	          //do something with the results
+	      } );
+
+	server.people.query( 'answer' )
+	      .range({gte: 30, lte: 50})
 	      .then( function ( results ) {
 	          //do something with the results
 	      } );
