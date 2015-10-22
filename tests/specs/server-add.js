@@ -1,24 +1,25 @@
 /*global window, console*/
 /*jslint vars:true*/
+/*eslint no-magic-numbers: 0*/
 (function ( db , describe , it , expect , beforeEach , afterEach ) {
     'use strict';
-    
+
     describe( 'server.add' , function () {
         var dbName = 'tests',
             indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
-           
+
         beforeEach( function (done) {
             var spec = this;
-            
+
             spec.server = undefined;
-            
+
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 db.open( {
                     server: dbName ,
                     version: 1 ,
-                    schema: { 
+                    schema: {
                         test: {
                             key: {
                                 keyPath: 'id',
@@ -32,41 +33,41 @@
                     done();
                 });
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments , spec );
             };
         });
-        
+
         afterEach( function (done) {
             if ( this.server ) {
                 this.server.close();
             }
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 done();
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments );
             };
         });
-           
+
         it( 'should insert a new item into the object store' , function (done) {
             var item = {
                 firstName: 'Aaron',
                 lastName: 'Powell'
             };
-            
+
             this.server.add( 'test' , item ).then( function ( records ) {
                 item = records[0];
                 expect( item.id ).toBeDefined();
@@ -74,7 +75,7 @@
                 done();
             });
         });
-        
+
         it( 'should insert multiple records' , function () {
             var item1 = {
                 firstName: 'Aaron',
@@ -84,8 +85,8 @@
                 firstName: 'John',
                 lastName: 'Smith'
             };
-            
-            this.server.add( 'test' , item1 , item2 ).then( function ( /*records*/ ) {
+
+            this.server.add( 'test' , item1 , item2 ).then( function ( /* records */ ) {
                 expect( item1.id ).toBeDefined();
                 expect( item1.id ).toEqual( 1 );
                 expect( item2.id ).toBeDefined();
@@ -97,19 +98,19 @@
     describe( 'server.add-non-autoincrement key' , function () {
         var dbName = 'tests',
             indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
-           
+
         beforeEach( function (done) {
             var spec = this;
-            
+
             spec.server = undefined;
-            
+
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 db.open( {
                     server: dbName ,
                     version: 1 ,
-                    schema: { 
+                    schema: {
                         test: {
                             key: {
                                 keyPath: 'id',
@@ -123,30 +124,30 @@
                     done();
                 });
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments , spec );
             };
         });
-        
+
         afterEach( function (done) {
             if ( this.server ) {
                 this.server.close();
             }
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 done();
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments );
             };
@@ -158,7 +159,7 @@
                 lastName: 'Powell',
                 id: 'abcd'
             };
-            
+
             this.server.add( 'test' , item ).then( function ( records ) {
                 item = records[0];
                 expect( item.id ).toBeDefined();
@@ -171,19 +172,19 @@
     describe( 'server.add no keyPath' , function () {
         var dbName = 'tests',
             indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
-           
+
         beforeEach( function (done) {
             var spec = this;
-            
+
             spec.server = undefined;
-            
+
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 db.open( {
                     server: dbName ,
                     version: 1 ,
-                    schema: { 
+                    schema: {
                         test: {
                             key: {
                                 autoIncrement: true
@@ -196,32 +197,32 @@
                     done();
                 });
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db' , arguments );
                 done();
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments , spec );
                 done();
             };
         });
-        
+
         afterEach( function (done) {
             if ( this.server ) {
                 this.server.close();
             }
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 done();
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments );
             };
@@ -232,7 +233,7 @@
                 firstName: 'Aaron',
                 lastName: 'Powell'
             };
-            
+
             this.server.add( 'test' , item ).then( function ( records ) {
                 item = records[0];
                 expect( item.__id__ ).toBeDefined();
@@ -250,9 +251,9 @@
                 firstName: 'Aaron',
                 lastName: 'Powell'
             };
-            
+
             var spec = this;
-            spec.server.add( 'test' , item1 , item2 ).then( function ( /*records*/ ) {
+            spec.server.add( 'test' , item1 , item2 ).then( function ( /* records */ ) {
                 expect( item1.__id__ ).toBeDefined();
                 expect( item1.__id__ ).toEqual( 1 );
                 expect( item2.__id__ ).toBeDefined();
@@ -272,9 +273,9 @@
                     lastName: 'Powell'
                 }
             ];
-            
+
             var spec = this;
-            spec.server.add( 'test' , items ).then( function ( /*records*/ ) {
+            spec.server.add( 'test' , items ).then( function ( /* records */ ) {
                 expect( items[0].__id__ ).toBeDefined();
                 expect( items[0].__id__ ).toEqual( 1 );
                 expect( items[1].__id__ ).toBeDefined();
@@ -288,12 +289,12 @@
                 firstName: 'Aaron',
                 lastName: 'Powell'
             };
-            
+
             var spec = this;
             spec.server.add( 'test' , {
                 item: item1,
                 key: 1.001
-            } ).then( function ( /*records*/ ) {
+            } ).then( function ( /* records */ ) {
                 expect( item1.__id__ ).toBeDefined();
                 expect( item1.__id__ ).toEqual( 1.001 );
                 done();
@@ -305,12 +306,12 @@
                 firstName: 'Aaron',
                 lastName: 'Powell'
             };
-            
+
             var spec = this;
             spec.server.add( 'test' , {
                 item: item1,
                 key: 'key'
-            } ).then( function ( /*records*/ ) {
+            } ).then( function ( /* records */ ) {
                 expect( item1.__id__ ).toBeDefined();
                 expect( item1.__id__ ).toEqual( 'key' );
                 done();
@@ -326,7 +327,7 @@
                 firstName: 'Aaron',
                 lastName: 'Powell'
             };
-            
+
             var spec = this;
             spec.server.add( 'test' , {
                 item: item1,
@@ -334,7 +335,7 @@
             } , {
                 item: item2,
                 key: 5
-            } ).then( function ( /*records*/ ) {
+            } ).then( function ( /* records */ ) {
                 expect( item1.__id__ ).toBeDefined();
                 expect( item1.__id__ ).toEqual( 'key' );
                 expect( item2.__id__ ).toBeDefined();
@@ -356,12 +357,12 @@
                 firstName: 'Aaron',
                 lastName: 'Powell'
             };
-            
+
             var spec = this;
             spec.server.add( 'test' , item1 , {
                 item: item2,
                 key: 5
-            } , item3 ).then( function ( /*records*/ ) {
+            } , item3 ).then( function ( /* records */ ) {
                 expect( item1.__id__ ).toBeDefined();
                 expect( item1.__id__ ).toEqual( 1 );
                 expect( item2.__id__ ).toBeDefined();
@@ -378,18 +379,18 @@
                 lastName: 'Powell'
             };
             var key = 'key';
-            
+
             var spec = this;
             spec.server.add( 'test' , {
                 item: item1,
                 key: key
-            } ).then( function ( /*records*/ ) {
+            } ).then( function ( /* records */ ) {
                 spec.server.add( 'test' , {
                     item: item1,
                     key: key
-                } ).then( function ( /*records*/ ) {
-                    //done = true;
-                })['catch']( function ( e ) {
+                } ).then( function ( /* records */ ) {
+                    // done();
+                }).catch( function ( e ) {
                     expect( e.target.error.name ).toBe( 'ConstraintError' );
                     done();
                 });

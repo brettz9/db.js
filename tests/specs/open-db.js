@@ -1,4 +1,5 @@
 /*global window, console*/
+/*eslint no-magic-numbers: 0 */
 (function ( db , describe , it , expect , beforeEach , afterEach ) {
     'use strict';
     describe( 'db.open' , function () {
@@ -8,43 +9,43 @@
         beforeEach( function (done) {
 
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 done();
             };
-            
+
             req.onerror = function (e) {
                 console.log( 'error deleting db' , arguments );
                 done(e);
             };
-            
+
             req.onblocked = function (e) {
                 console.log( 'db blocked on delete' , arguments );
                 done(e);
             };
         }, 10000);
-        
+
         afterEach( function (done) {
             if ( this.server ) {
                 this.server.close();
-            }                
+            }
             var req = indexedDB.deleteDatabase( dbName );
-            
-            req.onsuccess = function (/*e*/) {
+
+            req.onsuccess = function (/* e */) {
                 done();
             };
-            
+
             req.onerror = function (e) {
                 console.log( 'failed to delete db' , arguments );
                 done(e);
             };
-            
+
             req.onblocked = function (e) {
                 console.log( 'db blocked' , arguments );
                 done(e);
             };
         });
-        
+
         it( 'should open a new instance successfully' , function (done) {
             var spec = this;
             db.open( {
@@ -52,23 +53,23 @@
                 version: 1
             }).then( function ( s ) {
                 spec.server = s;
-                expect( spec.server ).toBeDefined(); 
+                expect( spec.server ).toBeDefined();
                 done();
             });
         });
-        
+
         it( 'should use the provided schema' , function (done) {
             db.open( {
                 server: dbName,
                 version: 1,
-                schema: { 
+                schema: {
                     test: {
                         key: {
                             keyPath: 'id',
                             autoIncrement: true
                         },
                         indexes: {
-                          x: {}
+                            x: {}
                         }
                     }
                 }
@@ -76,15 +77,15 @@
                 s.close();
                 var req = indexedDB.open( dbName );
                 req.onsuccess = function ( e ) {
-                    var db = e.target.result;
-                
-                    expect( db.objectStoreNames.length ).toEqual( 1 );
-                    expect( db.objectStoreNames[ 0 ] ).toEqual( 'test' );
-                
-                    db.close();
+                    var dbr = e.target.result;
+
+                    expect( dbr.objectStoreNames.length ).toEqual( 1 );
+                    expect( dbr.objectStoreNames[ 0 ] ).toEqual( 'test' );
+
+                    dbr.close();
                     done();
                 };
-            },function (err) {
+            }, function (err) {
                 console.log(err);
                 done(err);
             });
@@ -94,23 +95,23 @@
             db.open( {
                 server: dbName ,
                 version: 1,
-                schema: { 
+                schema: {
                     test: {}
                 }
             }).then(function ( s ) {
                 s.close();
                 var req = indexedDB.open( dbName );
                 req.onsuccess = function ( e ) {
-                    var db = e.target.result;
-                    
-                    expect( db.objectStoreNames.length ).toEqual( 1 );
-                    expect( db.objectStoreNames[ 0 ] ).toEqual( 'test' );
-                    
-                    db.close();
+                    var dbr = e.target.result;
+
+                    expect( dbr.objectStoreNames.length ).toEqual( 1 );
+                    expect( dbr.objectStoreNames[ 0 ] ).toEqual( 'test' );
+
+                    dbr.close();
                     done();
                 };
-            },function (err) {
-              done(err);
+            }, function (err) {
+                done(err);
             });
         });
 
@@ -118,7 +119,7 @@
             db.open( {
                 server: dbName,
                 version: 1,
-                schema: { 
+                schema: {
                     test: {}
                 }
             }).then(function ( s ) {
@@ -130,17 +131,17 @@
                 db.open( {
                     server: dbName,
                     version: 2,
-                    schema: { 
+                    schema: {
                         test: {},
                         extra: {}
                     }
-                }).then(function ( s ) {
-                    s.close();
+                }).then(function ( server ) {
+                    server.close();
                     migrated(true);
-                },function (/*err*/) {
+                }, function (/* err */) {
                     migrated(false);
                 });
-            },function (err) {
+            }, function (err) {
                 done(err);
             });
         });

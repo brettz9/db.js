@@ -2,23 +2,23 @@
 /*jslint vars:true*/
 (function ( db , describe , it , expect , beforeEach , afterEach ) {
     'use strict';
-    
+
     describe( 'server.update' , function () {
         var dbName = 'tests',
             indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
 
-       beforeEach( function (done) {
+        beforeEach( function (done) {
             var spec = this;
-            
+
             spec.server = undefined;
-            
+
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 db.open( {
                     server: dbName ,
                     version: 1 ,
-                    schema: { 
+                    schema: {
                         test: {
                             key: {
                                 keyPath: 'id',
@@ -32,30 +32,30 @@
                     done();
                 });
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments , spec );
             };
         });
-        
+
         afterEach( function (done) {
             if ( this.server ) {
                 this.server.close();
             }
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 done();
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments );
             };
@@ -69,18 +69,18 @@
 
             var spec = this;
 
-            spec.server.add( 'test' , item ).then( function ( /*records*/ ) {
+            spec.server.add( 'test' , item ).then( function ( /* records */ ) {
                 item.firstName = 'John';
                 item.lastName = 'Smith';
 
-                spec.server
-                    .test
-                    .update( item )
-                    .then( function ( /*records*/ ) {
-                        spec.server
-                            .test
-                            .get( item.id )
-                            .then( function ( record ) {
+                spec.server.
+                    test.
+                    update( item ).
+                    then( function ( /* records */ ) {
+                        spec.server.
+                            test.
+                            get( item.id ).
+                            then( function ( record ) {
                                 expect( record ).toBeDefined();
                                 expect( record.id ).toBe( item.id );
                                 expect( record.firstName ).toBe( item.firstName );
@@ -102,7 +102,7 @@
             }];
 
             var spec = this;
-            spec.server.add( 'test' , items ).then( function ( /*records*/ ) {
+            spec.server.add( 'test' , items ).then( function ( /* records */ ) {
                 var newItems = [{
                     firstName: 'John',
                     lastName: 'Smith',
@@ -113,15 +113,15 @@
                     id: items[1].id
                 }];
 
-                spec.server
-                    .test
-                    .update( newItems )
-                    .then( function ( /*records*/ ) {
+                spec.server.
+                    test.
+                    update( newItems ).
+                    then( function ( /* records */ ) {
                         var item = newItems[1];
-                        spec.server
-                            .test
-                            .get( item.id )
-                            .then( function ( record ) {
+                        spec.server.
+                            test.
+                            get( item.id ).
+                            then( function ( record ) {
                                 expect( record ).toBeDefined();
                                 expect( record.id ).toBe( item.id );
                                 expect( record.firstName ).toBe( item.firstName );
@@ -142,25 +142,25 @@
                 firstName: 'Bob',
                 lastName: 'Down'
             };
-            
+
             var spec = this;
-            spec.server.add( 'test' , item , item2 ).then( function ( /*records*/ ) {
+            spec.server.add( 'test' , item , item2 ).then( function ( /* records */ ) {
                 item.firstName = 'John';
                 item.lastName = 'Smith';
 
                 item2.firstName = 'Billy';
                 item2.lastName = 'Brown';
 
-                spec.server
-                    .test
-                    .update( item , item2 )
-                    .then( function ( /*records*/ ) {
-                        spec.server
-                            .test
-                            .query()
-                            .all()
-                            .execute()
-                            .then( function ( records ) {
+                spec.server.
+                    test.
+                    update( item , item2 ).
+                    then( function ( /* records */ ) {
+                        spec.server.
+                            test.
+                            query().
+                            all().
+                            execute().
+                            then( function ( records ) {
                                 expect( records.length ).toBe( 2 );
 
                                 var record = records[0];
@@ -186,19 +186,19 @@
     describe( 'server.update-custom-keys' , function () {
         var dbName = 'tests',
             indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
-           
-       beforeEach( function (done) {
+
+        beforeEach( function (done) {
             var spec = this;
-            
+
             spec.server = undefined;
-            
+
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 db.open( {
                     server: dbName ,
                     version: 1 ,
-                    schema: { 
+                    schema: {
                         test: {
                         }
                     }
@@ -208,30 +208,30 @@
                     done();
                 });
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments , spec );
             };
         });
-        
+
         afterEach( function (done) {
             if ( this.server ) {
                 this.server.close();
             }
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 done();
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments );
             };
@@ -243,30 +243,30 @@
                 lastName: 'Powell'
             };
             var key = 'foo';
-            
+
             var spec = this;
-            spec.server
-                .add( 'test' , {
-                        item: item,
-                        key: key
-                    })
-                .then( function ( /*records*/ ) {
+            spec.server.
+                add( 'test' , {
+                    item: item,
+                    key: key
+                }).
+                then( function ( /* records */ ) {
                     item.firstName = 'John';
                     item.lastName = 'Smith';
 
-                    spec.server
-                        .test
-                        .update( {
+                    spec.server.
+                        test.
+                        update( {
                             item: item,
                             key: key
-                        } )
-                        .then( function ( /*records*/ ) {
-                            spec.server
-                                .test
-                                .query()
-                                .all()
-                                .execute()
-                                .then( function ( records ) {
+                        } ).
+                        then( function ( /* records */ ) {
+                            spec.server.
+                                test.
+                                query().
+                                all().
+                                execute().
+                                then( function ( records ) {
                                     done = true;
 
                                     expect( records.length ).toBe( 1 );

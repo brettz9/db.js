@@ -2,23 +2,23 @@
 /*jslint vars:true*/
 (function ( db , describe , it , expect , beforeEach , afterEach , $ ) {
     'use strict';
-    
+
     describe( 'thenable library promise integration' , function () {
         var dbName = 'tests',
             indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
-           
-       beforeEach( function (done) {
+
+        beforeEach( function (done) {
             var spec = this;
-            
+
             spec.server = undefined;
-            
+
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 db.open( {
                     server: dbName ,
                     version: 1 ,
-                    schema: { 
+                    schema: {
                         test: {
                             key: {
                                 keyPath: 'id',
@@ -29,27 +29,27 @@
                 }).then(function ( s ) {
                     spec.server = s;
                 }).then(function () {
-                    spec.server
-                        .test
-                        .add({
+                    spec.server.
+                        test.
+                        add({
                             firstName: 'Aaron',
                             lastName: 'Powell'
-                        })
-                        .then(function () {
+                        }).
+                        then(function () {
                             done();
                         });
                 });
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db in beforeEach' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments , spec );
             };
         });
-        
+
         afterEach( function (done) {
             if ( this.server ) {
                 this.server.close();
@@ -62,30 +62,30 @@
             req.onsuccess = function () {
                 done();
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db in afterEach' , arguments , spec );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments );
             };
         });
 
         it( 'should be able to work with other thenable library' , function (done) {
-            var ajaxData;
+            // var ajaxData;
             var queryData;
             var ajaxDeferred = $.getJSON( 'foo' );
-            var queryDeferred = this
-                .server
-                .test
-                .query()
-                .all()
-                .execute();
+            var queryDeferred = this.
+                server.
+                test.
+                query().
+                all().
+                execute();
 
-            Promise.all([Promise.resolve(ajaxDeferred), queryDeferred])
-              .then(function (resolvedArray) {
-                  ajaxData = resolvedArray[0];
+            Promise.all([Promise.resolve(ajaxDeferred), queryDeferred]).
+              then(function (resolvedArray) {
+                  // ajaxData = resolvedArray[0];
                   queryData = resolvedArray[1];
                   expect( queryData ).toBeDefined();
                   expect( queryData.length ).toBe( 1 );

@@ -1,4 +1,5 @@
-(function ( db , describe , it , expect , beforeEach , afterEach ) {
+/*global window*/
+(function ( db , describe , it , expect , beforeEach /*, afterEach */ ) {
     'use strict';
     describe( 'db.delete' , function () {
         var dbName = 'tests',
@@ -21,13 +22,13 @@
             db.open( {
                 server: dbName ,
                 version: 1,
-                schema: { 
+                schema: {
                     test: {
                     }
                 }
             }).then(function ( s ) {
                 s.close();
-                db['delete'](dbName).then(function () {
+                db.delete(dbName).then(function () {
                     var request = indexedDB.open(dbName);
                     request.onupgradeneeded = function (e){
                         expect(e.oldVersion).toEqual(0);
@@ -35,9 +36,9 @@
                         done();
                     };
                 });
-            },function (err) {
-              done(err);
+            }, function (err) {
+                done(err);
             });
         });
     });
-})( window.db , window.describe , window.it , window.expect , window.beforeEach , window.afterEach );
+}( window.db , window.describe , window.it , window.expect , window.beforeEach , window.afterEach ));

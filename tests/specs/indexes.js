@@ -2,31 +2,31 @@
 /*jslint vars:true*/
 (function ( db , describe , it , expect , beforeEach , afterEach ) {
     'use strict';
-    
+
     describe( 'db.indexes' , function () {
         var dbName = 'tests',
             indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
-           
-       beforeEach( function (done) {
+
+        beforeEach( function (done) {
             var spec = this;
-            
+
             spec.server = undefined;
-            
+
             var req = indexedDB.deleteDatabase( dbName );
-            
+
             req.onsuccess = function () {
                 done();
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db in beforeEach' , arguments );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments , spec );
             };
         });
-        
+
         afterEach( function (done) {
             if ( this.server ) {
                 this.server.close();
@@ -39,16 +39,16 @@
             req.onsuccess = function () {
                 done();
             };
-            
+
             req.onerror = function () {
                 console.log( 'failed to delete db in afterEach' , arguments , spec );
             };
-            
+
             req.onblocked = function () {
                 console.log( 'db blocked' , arguments );
             };
         });
-        
+
         it( 'should allow creating dbs with indexes' , function (done) {
             var spec = this;
             db.open( {
@@ -104,7 +104,7 @@
                 }
             }).then(function ( s ) {
                 s.close();
-                
+
                 db.open( {
                     server: dbName,
                     version: 2,
@@ -120,8 +120,8 @@
                             }
                         }
                     }
-                }).then(function ( s ) {
-                    spec.server = s;
+                }).then(function ( server ) {
+                    spec.server = server;
                 }).then(function () {
                     spec.server.close();
 
@@ -162,7 +162,7 @@
                 }
             }).then(function ( s ) {
                 s.close();
-                
+
                 db.open( {
                     server: dbName,
                     version: 2,
@@ -178,8 +178,8 @@
                             }
                         }
                     }
-                }).then(function ( s ) {
-                    spec.server = s;
+                }).then(function ( server ) {
+                    spec.server = server;
                 }).then(function () {
                     spec.server.close();
 
@@ -200,6 +200,6 @@
                     };
                 });
             });
-		});
+        });
     });
 }( window.db , window.describe , window.it , window.expect , window.beforeEach , window.afterEach ));
