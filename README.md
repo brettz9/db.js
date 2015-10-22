@@ -50,7 +50,7 @@ Note that the methods below can be called either as
 `server.people.xxx( arg1, arg2, ... )` or
 `server.xxx( 'people', arg1, arg2, ... )`.
 
-## Adding items
+### Adding items
 
 ```js
     server.people.add({
@@ -62,7 +62,7 @@ Note that the methods below can be called either as
     });
 ```
 
-## Removing
+### Removing
 
 ```js
     server.people.remove(1).then(function (key) {
@@ -70,7 +70,7 @@ Note that the methods below can be called either as
     });
 ```
 
-### Clearing
+#### Clearing
 This allows removing all items in a table/collection:
 
 ```js
@@ -80,9 +80,9 @@ This allows removing all items in a table/collection:
         });
 ```
 
-## Fetching
+### Fetching
 
-### Getting a single object by ID
+#### Getting a single object by ID
 
 ```js
     server.people.get(5).
@@ -92,7 +92,7 @@ This allows removing all items in a table/collection:
         });
 ```
 
-### Querying all objects, with optional filtering
+#### Querying all objects, with optional filtering
 
 ```js
     server.people.query().
@@ -103,7 +103,7 @@ This allows removing all items in a table/collection:
         });
 ```
 
-### Filter with function
+#### Filter with function
 
 ```js
     server.people.query().
@@ -114,7 +114,7 @@ This allows removing all items in a table/collection:
         });
 ```
 
-### Querying using indexes
+#### Querying using indexes
 
 All ranges supported by IDBKeyRange can be used.
 
@@ -150,7 +150,7 @@ are also supported:
         });
 ```
 
-### Atomic updates
+#### Atomic updates
 
 Any query that returns a range of results can also be set to modify the returned
 records automatically. This is done by adding `.modify()` at the end of the query
@@ -192,7 +192,7 @@ Examples:
 `modify` can be used after: `all`, `filter`, `desc`, `distinct`, `only`,
 `bound`, `upperBound`, or `lowerBound`.
 
-### Counting
+#### Counting
 
 ```js
     server.query('test', 'firstName').
@@ -204,13 +204,13 @@ Examples:
         });
 ```
 
-## Closing connection
+### Closing connection
 
 ```js
     server.close();
 ```
 
-## Retrieving the `indexedDB` object in use
+### Retrieving the `indexedDB` object in use
 
 ```js
     server.getIndexedDB();
