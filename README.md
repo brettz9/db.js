@@ -77,7 +77,7 @@ This allows removing all items in a table/collection:
 server.people.clear().
         then(function () {
             // all table data is gone.
-        })
+        });
 ```
 
 ## Fetching
