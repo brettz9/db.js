@@ -1,23 +1,23 @@
 /*global window, console, Promise*/
 /*jslint vars:true*/
-(function ( db , describe , it , expect , beforeEach , afterEach , $ ) {
+(function (db, describe, it, expect, beforeEach, afterEach, $) {
     'use strict';
 
-    describe( 'thenable library promise integration' , function () {
+    describe('thenable library promise integration', function () {
         var dbName = 'tests',
             indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
 
-        beforeEach( function (done) {
+        beforeEach(function (done) {
             var spec = this;
 
             spec.server = undefined;
 
-            var req = indexedDB.deleteDatabase( dbName );
+            var req = indexedDB.deleteDatabase(dbName);
 
             req.onsuccess = function () {
-                db.open( {
-                    server: dbName ,
-                    version: 1 ,
+                db.open({
+                    server: dbName,
+                    version: 1,
                     schema: {
                         test: {
                             key: {
@@ -26,7 +26,7 @@
                             }
                         }
                     }
-                }).then(function ( s ) {
+                }).then(function (s) {
                     spec.server = s;
                 }).then(function () {
                     spec.server.
@@ -42,40 +42,40 @@
             };
 
             req.onerror = function () {
-                console.log( 'failed to delete db in beforeEach' , arguments );
+                console.log('failed to delete db in beforeEach', arguments);
             };
 
             req.onblocked = function () {
-                console.log( 'db blocked' , arguments , spec );
+                console.log('db blocked', arguments, spec);
             };
         });
 
-        afterEach( function (done) {
-            if ( this.server ) {
+        afterEach(function (done) {
+            if (this.server) {
                 this.server.close();
             }
 
             var spec = this;
 
-            var req = indexedDB.deleteDatabase( dbName );
+            var req = indexedDB.deleteDatabase(dbName);
 
             req.onsuccess = function () {
                 done();
             };
 
             req.onerror = function () {
-                console.log( 'failed to delete db in afterEach' , arguments , spec );
+                console.log('failed to delete db in afterEach', arguments, spec);
             };
 
             req.onblocked = function () {
-                console.log( 'db blocked' , arguments );
+                console.log('db blocked', arguments);
             };
         });
 
-        it( 'should be able to work with other thenable library' , function (done) {
+        it('should be able to work with other thenable library', function (done) {
             // var ajaxData;
             var queryData;
-            var ajaxDeferred = $.getJSON( 'foo' );
+            var ajaxDeferred = $.getJSON('foo');
             var queryDeferred = this.
                 server.
                 test.
@@ -87,12 +87,12 @@
               then(function (resolvedArray) {
                   // ajaxData = resolvedArray[0];
                   queryData = resolvedArray[1];
-                  expect( queryData ).toBeDefined();
-                  expect( queryData.length ).toBe( 1 );
-                  expect( queryData[ 0 ].firstName ).toBe( 'Aaron' );
-                  expect( queryData[ 0 ].lastName ).toBe( 'Powell' );
+                  expect(queryData).toBeDefined();
+                  expect(queryData.length).toBe(1);
+                  expect(queryData[0].firstName).toBe('Aaron');
+                  expect(queryData[0].lastName).toBe('Powell');
                   done();
               });
         });
     });
-}( window.db , window.describe , window.it , window.expect , window.beforeEach , window.afterEach , window.jQuery ));
+}(window.db, window.describe, window.it, window.expect, window.beforeEach, window.afterEach, window.jQuery));
