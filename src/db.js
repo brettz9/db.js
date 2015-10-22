@@ -77,14 +77,14 @@ var module;
                         counter = limitRange[0];
                         cursor.advance(limitRange[0]);
                     } else if ( limitRange !== null && counter >= (limitRange[0] + limitRange[1]) ) {
-                        //out of limit range... skip
+                        // out of limit range... skip
                     } else {
                         var matchFilter = true;
                         var result = 'value' in cursor ? cursor.value : cursor.key;
 
                         filters.forEach( function ( filter ) {
                             if ( !filter || !filter.length ) {
-                                //Invalid filter do nothing
+                                // Invalid filter do nothing
                             } else if ( filter.length === 2 ) {
                                 matchFilter = matchFilter && (result[filter[0]] === filter[1]);
                             } else {
@@ -241,6 +241,41 @@ var module;
             };
         });
 
+        this.range = function (opts) {
+            var keys = Object.keys(opts).sort();
+            if (keys.length === 1) {
+                var key = keys[0];
+                var val = opts[key];
+                var name, inclusive;
+                switch (key) {
+                case 'eq': name = 'only'; break;
+                case 'gt':
+                    name = 'lowerBound';
+                    inclusive = true;
+                    break;
+                case 'lt':
+                    name = 'upperBound';
+                    inclusive = true;
+                    break;
+                case 'gte': name = 'lowerBound'; break;
+                case 'lte': name = 'upperBound'; break;
+                default: throw new TypeError('`' + key + '` is not valid key');
+                }
+                return new Query(name, [val, inclusive]);
+            }
+            var x = opts[keys[0]];
+            var y = opts[keys[1]];
+            var pattern = keys.join('-');
+
+            switch (pattern) {
+            case 'gt-lt': case 'gt-lte': case 'gte-lt': case 'gte-lte':
+                return new Query('bound', [x, y, keys[0] === 'gt', keys[1] === 'lt']);
+            default: throw new TypeError(
+              '`' + pattern + '` are conflicted keys'
+            );
+            }
+        };
+
         this.filter = function () {
             var query = new Query( null , null );
             return query.filter.apply( query , arguments );
@@ -363,7 +398,7 @@ var module;
                         req = store.put( record );
                     }
 
-                    req.onsuccess = function ( /*e*/ ) {
+                    req.onsuccess = function ( /* e */ ) {
                         // deferred.notify(); es6 promise can't notify
                     };
                 } );
@@ -479,7 +514,6 @@ var module;
         }
     };
 
-
     var createSchema = function ( e , schema , db ) {
         if ( typeof schema === 'function' ) {
             schema = schema();
@@ -510,7 +544,6 @@ var module;
     var open = function ( e , server /*, version, schema*/ ) {
         var db = e.target.result;
         var s = new Server( db , server );
-        var upgrade;
 
         dbCache[ server ] = db;
 
