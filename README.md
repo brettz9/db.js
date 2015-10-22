@@ -74,7 +74,7 @@ Note that the methods below can be called either as
 This allows removing all items in a table/collection:
 
 ```js
-server.people.clear().
+    server.people.clear().
         then(function () {
             // all table data is gone.
         });
@@ -86,21 +86,21 @@ server.people.clear().
 
 ```js
     server.people.get(5).
-            execute().
-            then(function (results) {
-                // do something with the results
-            });
+        execute().
+        then(function (results) {
+            // do something with the results
+        });
 ```
 
 ### Querying all objects, with optional filtering
 
 ```js
     server.people.query().
-            filter('firstName', 'Aaron').
-            execute().
-            then(function (results) {
-                // do something with the results
-            });
+        filter('firstName', 'Aaron').
+        execute().
+        then(function (results) {
+            // do something with the results
+        });
 ```
 
 ### Filter with function
@@ -126,10 +126,10 @@ All ranges supported by IDBKeyRange can be used.
         });
 
     server.people.query('answer').
-          bound(30, 50).
-          then(function (results) {
-              // do something with the results
-          });
+        bound(30, 50).
+        then(function (results) {
+            // do something with the results
+        });
 ```
 
 MongoDB-style ranges (as implemented in
@@ -138,10 +138,10 @@ are also supported:
 
 ```js
     server.people.query('firstName').
-            range({eq: 'Aaron'}).
-            then(function (results) {
-                // do something with the results
-            });
+        range({eq: 'Aaron'}).
+        then(function (results) {
+            // do something with the results
+        });
 
     server.people.query('answer').
         range({gte: 30, lte: 50}).
@@ -163,30 +163,30 @@ modifications applied to them).
 Examples:
 
 ```js
-// grab all users modified in the last 10 seconds,
-server.users.query('last_mod').
-    lowerBound(new Date().getTime() - 10000).
-    modify({last_mod: new Date.getTime()}).
-    execute().
-    then(function(results) {
-        // now we have a list of recently modified users
-    });
+    // grab all users modified in the last 10 seconds,
+    server.users.query('last_mod').
+        lowerBound(new Date().getTime() - 10000).
+        modify({last_mod: new Date.getTime()}).
+        execute().
+        then(function(results) {
+            // now we have a list of recently modified users
+        });
 
-// grab all changed records and atomically set them as unchanged
-server.users.query('changed').
-    only(true).
-    modify({changed: false}).
-    execute().
-    then(...);
+    // grab all changed records and atomically set them as unchanged
+    server.users.query('changed').
+        only(true).
+        modify({changed: false}).
+        execute().
+        then(...);
 
-// use a function to update the results. the function is passed the original
-// (unmodified) record, which allows us to update the data based on the record
-// itself.
-server.profiles.query('name').
-    lowerBound('marcy').
-    modify({views: function (profile) {return profile.views + 1;}}).
-    execute().
-    then(...);
+    // use a function to update the results. the function is passed the original
+    // (unmodified) record, which allows us to update the data based on the record
+    // itself.
+    server.profiles.query('name').
+        lowerBound('marcy').
+        modify({views: function (profile) {return profile.views + 1;}}).
+        execute().
+        then(...);
 ```
 
 `modify` can be used after: `all`, `filter`, `desc`, `distinct`, `only`,
