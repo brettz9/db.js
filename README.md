@@ -75,9 +75,9 @@ This allows removing all items in a table/collection:
 
 ```js
 server.people.clear().
-		then(function () {
-		    // all table data is gone.
-		})
+        then(function () {
+            // all table data is gone.
+        })
 ```
 
 ## Fetching
@@ -86,21 +86,21 @@ server.people.clear().
 
 ```js
     server.people.get(5).
-		    execute().
-		    then(function (results) {
-		        // do something with the results
-		    });
+            execute().
+            then(function (results) {
+                // do something with the results
+            });
 ```
 
 ### Querying all objects, with optional filtering
 
 ```js
     server.people.query().
-		    filter('firstName', 'Aaron').
-		    execute().
-		    then(function (results) {
-		        // do something with the results
-		    });
+            filter('firstName', 'Aaron').
+            execute().
+            then(function (results) {
+                // do something with the results
+            });
 ```
 
 ### Filter with function
@@ -126,10 +126,10 @@ All ranges supported by IDBKeyRange can be used.
         });
 
     server.people.query('answer').
-	      bound(30, 50).
-	      then(function (results) {
-	          // do something with the results
-	      });
+          bound(30, 50).
+          then(function (results) {
+              // do something with the results
+          });
 ```
 
 MongoDB-style ranges (as implemented in
@@ -138,10 +138,10 @@ are also supported:
 
 ```js
     server.people.query('firstName').
-		    range({eq: 'Aaron'}).
-		    then(function (results) {
-		        // do something with the results
-		    });
+            range({eq: 'Aaron'}).
+            then(function (results) {
+                // do something with the results
+            });
 
     server.people.query('answer').
         range({gte: 30, lte: 50}).
