@@ -1,0 +1,9 @@
+{
+  "rules": {
+    "max-len": 0,
+    "func-style": 0,
+    "no-extra-parens": 0,
+    "consistent-this": 0,
+    "no-console": 0
+  }
+}
