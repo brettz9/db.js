@@ -150,7 +150,18 @@ are also supported:
         });
 ```
 
-#### Atomic updates
+#### Counting
+
+```js
+    server.query('test', 'firstName').
+        only('Aaron').
+        count().
+        execute().
+        then(function (results) {
+            // `results` will equal the total count of "Aaron"'s
+        });
+```
+### Atomic updates
 
 Any query that returns a range of results can also be set to modify the returned
 records automatically. This is done by adding `.modify()` at the end of the query
@@ -191,18 +202,6 @@ Examples:
 
 `modify` can be used after: `all`, `filter`, `desc`, `distinct`, `only`,
 `bound`, `upperBound`, or `lowerBound`.
-
-#### Counting
-
-```js
-    server.query('test', 'firstName').
-        only('Aaron').
-        count().
-        execute().
-        then(function (results) {
-            // `results` will equal the total count of "Aaron"'s
-        });
-```
 
 ### Closing connection
 
