@@ -192,10 +192,28 @@ Examples:
 `modify` can be used after: `all`, `filter`, `desc`, `distinct`, `only`,
 `bound`, `upperBound`, or `lowerBound`.
 
+### Counting
+
+```js
+    server.query('test', 'firstName').
+        only('Aaron').
+        count().
+        execute().
+        then(function (results) {
+            // `results` will equal the total count of "Aaron"'s
+        });
+```
+
 ## Closing connection
 
 ```js
     server.close();
+```
+
+## Retrieving the `indexedDB` object in use
+
+```js
+    server.getIndexedDB();
 ```
 
 # Deferred/Promise notes
