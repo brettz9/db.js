@@ -497,7 +497,10 @@ var module;
         var i, il;
         for (i = 0, il = db.objectStoreNames.length; i < il; i++) {
             (function (storeName) {
-                that[storeName] = { };
+                if (that[storeName]) {
+                    throw 'The store name, "' + storeName + '", which you have attempted to load, conflicts with db.js method names."';
+                }
+                that[storeName] = {};
                 var p;
                 for (p in that) {
                     if (!hasOwn.call(that, p) || p === 'close') {
@@ -580,7 +583,7 @@ var module;
                 }
             });
         },
-        'delete': function (dbName) {
+        delete: function (dbName) {
             var request;
 
             return new Promise(function (resolve, reject) {
