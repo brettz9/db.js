@@ -10,7 +10,7 @@ make it easier to work against, making it look more like a queryable API.
 Add a reference to db.js in your application before you want to use IndexedDB:
 
 ```html
-    <script src='/scripts/db.js'></script>
+    <script src='/src/db.js'></script>
 ```
 
 Alternatively, db.js includes an optional `define` call, and can be loaded
