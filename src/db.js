@@ -37,7 +37,6 @@ var module;
     var isArray = Array.isArray;
 
     var IndexQuery = function (table, db, indexName) {
-        var that = this;
         var modifyObj = false;
 
         var runQuery = function (type, args, cursorType, direction, limitRange, filters, mapper) {
@@ -237,10 +236,10 @@ var module;
         };
 
         ['only', 'bound', 'upperBound', 'lowerBound'].forEach(function (name) {
-            that[name] = function () {
+            this[name] = function () {
                 return new Query(name, arguments);
             };
-        });
+        }, this);
 
         this.range = function (opts) {
             var keys = Object.keys(opts).sort();
