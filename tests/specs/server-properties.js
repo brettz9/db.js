@@ -4,7 +4,7 @@
 (function (db, describe, it, expect, beforeEach, afterEach) {
     'use strict';
 
-    describe('server.properties', function () {
+    describe('server properties', function () {
         var dbName = 'tests', version = 1,
             indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
 
