@@ -470,14 +470,6 @@ var module;
         return new IndexQuery(table, this.db, index);
     };
 
-    Server.prototype.count = function (table /*, key*/) {
-        if (this.closed) {
-            throw 'Database has been closed';
-        }
-        var transaction = this.db.transaction(table),
-            store = transaction.objectStore(table);
-    };
-
 
     var createSchema = function (e, schema, db) {
         if (typeof schema === 'function') {
