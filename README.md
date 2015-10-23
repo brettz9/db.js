@@ -128,7 +128,7 @@ This allows removing all items in a table/collection:
 
 ```js
     server.people.query().
-        filter( function(person){return person.group === 'hipster';})
+        filter(function(person){return person.group === 'hipster';})
         execute().
         then(function (results) {
             // do something with the results
