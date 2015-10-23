@@ -441,7 +441,7 @@ var module;
                 return this.db.objectStoreNames;
             },
             set: function () {
-                throw "'version' is a readonly property";
+                throw "'objectStoreNames' is a readonly property";
             }
         }
     });
