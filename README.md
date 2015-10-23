@@ -46,7 +46,7 @@ A connection is intended to be persisted, and you can perform multiple
 operations while it's kept open. Check out the `/tests/specs` folder
 for more examples.
 
-## General store methods
+## General server/store methods
 
 Note that by default the methods below can be called either as
 `server.people.xxx( arg1, arg2, ... )` or
@@ -224,16 +224,31 @@ Examples:
 `modify` can be used after: `all`, `filter`, `desc`, `distinct`, `only`,
 `map`, `bound`, `upperBound`, or `lowerBound`.
 
-## Closing connection
+## Other server methods
+
+### Closing connection
 
 ```js
     server.close();
 ```
 
-## Retrieving the `indexedDB` object in use
+### Retrieving the `indexedDB` object in use
 
 ```js
     server.getIndexedDB();
+```
+
+## Deleting a database
+
+```js
+  db.delete(dbName).then(function (err) {
+      if (err) {
+        // Error during database deletion
+      }
+      else {
+        // Should have been a successful database deletion
+      }
+  });
 ```
 
 # Deferred/Promise notes
