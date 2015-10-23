@@ -114,9 +114,9 @@ This allows removing all items in a table/collection:
 
 #### Querying
 
-Querying requires a subsequent call to `execute()` (after
-any retrieval of all items, filtering, or applying
-ranges).
+Queries require one method or more to determine the type of querying
+(all items, filtering, or applying ranges) and then a subsequent call
+to `execute()`.
 
 ##### Querying all objects
 
@@ -126,6 +126,17 @@ ranges).
         execute().
         then(function (results) {
             // do something with the results
+        });
+```
+
+##### Querying using indexes
+
+```js
+    server.people.query('specialProperty').
+        all().
+        execute().
+        then(function (results) {
+            // do something with the results (items which possess `specialProperty`)
         });
 ```
 
@@ -153,7 +164,7 @@ ranges).
         });
 ```
 
-##### Querying using indexes
+##### Querying with ranges
 
 All ranges supported by IDBKeyRange can be used.
 

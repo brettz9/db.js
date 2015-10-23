@@ -27,7 +27,8 @@
                             },
                             indexes: {
                                 firstName: { },
-                                age: { }
+                                age: { },
+                                specialID: {}
                             }
                         }
                     }
@@ -47,7 +48,8 @@
                     spec.item3 = {
                         firstName: 'Aaron',
                         lastName: 'Jones',
-                        age: 40
+                        age: 40,
+                        specialID: 5
                     };
                     spec.server.add('test', spec.item1, spec.item2, spec.item3).then(function () {
                         done();
@@ -132,7 +134,15 @@
                 });
         });
 
-        it('should query against a single property', function (done) {
+        it('get results of unfiltered index query but with an index which limits results', function (done) {
+            this.server.test.query('specialID').all().execute().
+                then(function (results) {
+                    expect(results.length).toEqual(1);
+                    done();
+                });
+        });
+
+        it('should query filtering against a single property', function (done) {
             var spec = this;
             this.server.
                 query('test').
@@ -429,15 +439,6 @@
                         expect(results[1]).toEqual(40);
                         done();
                     });
-            });
-        });
-
-        describe('index.query.all', function () {
-            it('should use all() to obtain all items in a query', function (done) {
-                this.server.test.query().all().execute().then(function (results) {
-                    expect(results.length).toEqual(3);
-                    done();
-                });
             });
         });
 
