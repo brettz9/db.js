@@ -562,6 +562,9 @@ var module;
                     request.onerror = function (e) {
                         reject(e);
                     };
+                    request.onblocked = function (e) {
+                        reject(e);
+                    };
                 }
             });
         },
