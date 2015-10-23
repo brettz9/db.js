@@ -432,6 +432,15 @@
             });
         });
 
+        describe('index.query.all', function () {
+            it('should use all() to obtain all items in a query', function (done) {
+                this.server.test.query().all().execute().then(function (results) {
+                    expect(results.length).toEqual(3);
+                    done();
+                });
+            });
+        });
+
         describe('index.query.filters', function () {
             it('should allow additional filter on an only query', function (done) {
                 this.server.query('test', 'firstName').
