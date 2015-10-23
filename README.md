@@ -252,8 +252,8 @@ Examples:
         then(...);
 ```
 
-`modify` can be used after: `all`, `filter`, `desc`, `distinct`, `only`,
-`map`, `bound`, `upperBound`, or `lowerBound`.
+`modify` can be used after: `all`, `filter`, ranges (`range`, `only`,
+`bound`, `upperBound`, and `lowerBound`), `desc`, `distinct`, and `map`.
 
 ## Other server methods
 
