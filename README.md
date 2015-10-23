@@ -357,6 +357,14 @@ Examples:
     server.getIndexedDB();
 ```
 
+## Server properties
+
+```js
+    server.name; // The name of the database
+    server.version; // The current version of the database
+    server.objectStoreNames; // An array-like DOMStringList of names of the object stores
+```
+
 ## Deleting a database
 
 ```js

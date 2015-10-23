@@ -242,9 +242,10 @@ var module;
     };
 
 
-    var Server = function (db, name, noServerMethods) {
+    var Server = function (db, name, version, noServerMethods) {
         this.db = db;
-        this.name = name;
+        this._name = name;
+        this._version = version;
         this.closed = false;
         if (noServerMethods) {
             return;
@@ -418,6 +419,33 @@ var module;
         });
     };
 
+    Object.defineProperties(Server.prototype, {
+        name: {
+            get: function () {
+                return this._name;
+            },
+            set: function () {
+                throw "'name' is a readonly property";
+            }
+        },
+        version: {
+            get: function () {
+                return this._version;
+            },
+            set: function () {
+                throw "'version' is a readonly property";
+            }
+        },
+        objectStoreNames: {
+            get: function () {
+                return this.db.objectStoreNames;
+            },
+            set: function () {
+                throw "'version' is a readonly property";
+            }
+        }
+    });
+
     Server.prototype.clear = function (table) {
         if (this.closed) {
             throw 'Database has been closed';
@@ -442,7 +470,7 @@ var module;
         }
         this.db.close();
         this.closed = true;
-        delete dbCache[this.name];
+        delete dbCache[this._name];
     };
 
     Server.prototype.get = function (table, id) {
@@ -498,9 +526,9 @@ var module;
         }
     };
 
-    var open = function (e, server, noServerMethods /*, version, schema*/) {
+    var open = function (e, server, version, noServerMethods /*, schema*/) {
         var db = e.target.result;
-        var s = new Server(db, server, noServerMethods);
+        var s = new Server(db, server, version, noServerMethods);
 
         dbCache[server] = db;
 
@@ -518,13 +546,13 @@ var module;
                         target: {
                             result: dbCache[options.server]
                         }
-                    }, options.server, options.noServerMethods).
+                    }, options.server, options.version, options.noServerMethods).
                     then(resolve, reject);
                 } else {
                     request = getIndexedDB().open(options.server, options.version);
 
                     request.onsuccess = function (e) {
-                        open(e, options.server, options.noServerMethods).
+                        open(e, options.server, options.version, options.noServerMethods).
                             then(resolve, reject);
                     };
 
