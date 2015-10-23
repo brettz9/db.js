@@ -17,6 +17,8 @@ Alternatively, db.js includes an optional `define` call, and can be loaded
 as module using the [AMD](https://github.com/amdjs/amdjs-api/wiki/AMD)
 loader of your choice.
 
+## Opening/Creating a database and connection
+
 Once you have the script included you can then open connections to each
 different database within your application:
 
@@ -44,7 +46,7 @@ A connection is intended to be persisted, and you can perform multiple
 operations while it's kept open. Check out the `/tests/specs` folder
 for more examples.
 
-## General
+## General store methods
 
 Note that by default the methods below can be called either as
 `server.people.xxx( arg1, arg2, ... )` or
@@ -55,7 +57,9 @@ To reduce some memory requirements, however, one may supply
 and during then only the second method signature above can be
 used.
 
-### Adding items
+### Store modification
+
+#### Adding items
 
 ```js
     server.people.add({
@@ -67,7 +71,7 @@ used.
     });
 ```
 
-### Updating
+#### Updating
 
 ```js
     server.people.update({
@@ -79,7 +83,7 @@ used.
     });
 ```
 
-### Removing
+#### Removing
 
 ```js
     server.people.remove(1).then(function (key) {
