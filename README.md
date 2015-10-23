@@ -67,6 +67,18 @@ used.
     });
 ```
 
+### Updating
+
+```js
+    server.people.update({
+        firstName: 'Aaron',
+        lastName: 'Powell',
+        answer: 42
+    }).then(function (item) {
+        // item updated
+    });
+```
+
 ### Removing
 
 ```js
