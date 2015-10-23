@@ -113,7 +113,18 @@ This allows removing all items in a table/collection:
         });
 ```
 
-#### Querying all objects, with optional filtering
+#### Querying all objects
+
+```js
+    server.people.query().
+        all().
+        execute().
+        then(function (results) {
+            // do something with the results
+        });
+```
+
+#### Querying objects with filtering
 
 ```js
     server.people.query().
