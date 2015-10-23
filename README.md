@@ -107,13 +107,18 @@ This allows removing all items in a table/collection:
 
 ```js
     server.people.get(5).
-        execute().
         then(function (results) {
             // do something with the results
         });
 ```
 
-#### Querying all objects
+#### Querying
+
+Querying requires a subsequent call to `execute()` (after
+any retrieval of all items, filtering, or applying
+ranges).
+
+##### Querying all objects
 
 ```js
     server.people.query().
@@ -124,7 +129,9 @@ This allows removing all items in a table/collection:
         });
 ```
 
-#### Querying objects with filtering
+##### Filtering
+
+###### Querying objects with filtering
 
 ```js
     server.people.query().
@@ -135,7 +142,7 @@ This allows removing all items in a table/collection:
         });
 ```
 
-#### Filter with function
+###### Filter with function
 
 ```js
     server.people.query().
@@ -146,7 +153,7 @@ This allows removing all items in a table/collection:
         });
 ```
 
-#### Querying using indexes
+##### Querying using indexes
 
 All ranges supported by IDBKeyRange can be used.
 
@@ -182,7 +189,7 @@ are also supported:
         });
 ```
 
-#### Counting
+##### Counting
 
 ```js
     server.people.query('firstName').
@@ -193,6 +200,7 @@ are also supported:
             // `results` will equal the total count of "Aaron"'s
         });
 ```
+
 ### Atomic updates
 
 Any query that returns a range of results can also be set to modify the returned
