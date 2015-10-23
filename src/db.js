@@ -36,191 +36,95 @@ var module;
     var dbCache = {};
     var isArray = Array.isArray;
 
-    var IndexQuery = function (table, db, indexName) {
-        var modifyObj = false;
+    var Query = function (indexQueryObj, type, args) {
+        var direction = 'next',
+            cursorType = 'openCursor',
+            filters = [],
+            limitRange = null,
+            mapper = defaultMapper,
+            unique = false;
 
-        var runQuery = function (type, args, cursorType, direction, limitRange, filters, mapper) {
-            var transaction = db.transaction(table, modifyObj ? transactionModes.readwrite : transactionModes.readonly),
-                store = transaction.objectStore(table),
-                index = indexName ? store.index(indexName) : store,
-                keyRange = type ? IDBKeyRange[type].apply(null, args) : null,
-                results = [],
-                indexArgs = [keyRange],
-                counter = 0;
-
-            limitRange = limitRange || null;
-            filters = filters || [];
-            if (cursorType !== 'count') {
-                indexArgs.push(direction || 'next');
-            }
-
-            // create a function that will set in the modifyObj properties into
-            // the passed record.
-            var modifyKeys = modifyObj ? Object.keys(modifyObj) : false;
-            var modifyRecord = function (record) {
-                var i;
-                for (i = 0; i < modifyKeys.length; i++) {
-                    var key = modifyKeys[i];
-                    var val = modifyObj[key];
-                    if (val instanceof Function) {val = val(record);}
-                    record[key] = val;
-                }
-                return record;
-            };
-
-            index[cursorType].apply(index, indexArgs).onsuccess = function (e) {
-                var cursor = e.target.result;
-                if (typeof cursor === 'number') {
-                    results = cursor;
-                } else if (cursor) {
-                    if (limitRange !== null && limitRange[0] > counter) {
-                        counter = limitRange[0];
-                        cursor.advance(limitRange[0]);
-                    } else if (limitRange !== null && counter >= (limitRange[0] + limitRange[1])) {
-                        // out of limit range... skip
-                    } else {
-                        var matchFilter = true;
-                        var result = 'value' in cursor ? cursor.value : cursor.key;
-
-                        filters.forEach(function (filter) {
-                            if (!filter || !filter.length) {
-                                // Invalid filter do nothing
-                            } else if (filter.length === 2) {
-                                matchFilter = matchFilter && (result[filter[0]] === filter[1]);
-                            } else {
-                                matchFilter = matchFilter && filter[0].apply(undefined, [result]);
-                            }
-                        });
-
-                        if (matchFilter) {
-                            counter++;
-                            results.push(mapper(result));
-                            // if we're doing a modify, run it now
-                            if (modifyObj) {
-                                result = modifyRecord(result);
-                                cursor.update(result);
-                            }
-                        }
-                        cursor.continue();
-                    }
-                }
-            };
-
-            return new Promise(function (resolve, reject) {
-                transaction.oncomplete = function () {
-                    resolve(results);
-                };
-                transaction.onerror = function (e) {
-                    reject(e);
-                };
-                transaction.onabort = function (e) {
-                    reject(e);
-                };
-            });
+        var execute = function () {
+            return indexQueryObj.runQuery(type, args, cursorType, unique ? direction + 'unique' : direction, limitRange, filters, mapper);
         };
 
-        var Query = function (type, args) {
-            var direction = 'next',
-                cursorType = 'openCursor',
-                filters = [],
-                limitRange = null,
-                mapper = defaultMapper,
-                unique = false;
+        var limit = function () {
+            limitRange = Array.prototype.slice.call(arguments, 0, 2);
+            if (limitRange.length === 1) {
+                limitRange.unshift(0);
+            }
 
-            var execute = function () {
-                return runQuery(type, args, cursorType, unique ? direction + 'unique' : direction, limitRange, filters, mapper);
+            return {
+                execute: execute
             };
+        };
+        var count = function () {
+            direction = null;
+            cursorType = 'count';
 
-            var limit = function () {
-                limitRange = Array.prototype.slice.call(arguments, 0, 2);
-                if (limitRange.length === 1) {
-                    limitRange.unshift(0);
-                }
+            return {
+                execute: execute
+            };
+        };
 
-                return {
-                    execute: execute
-                };
-            };
-            var count = function () {
-                direction = null;
-                cursorType = 'count';
+        var filter, desc, distinct, modify, map;
+        var keys = function () {
+            cursorType = 'openKeyCursor';
 
-                return {
-                    execute: execute
-                };
+            return {
+                desc: desc,
+                execute: execute,
+                filter: filter,
+                distinct: distinct,
+                map: map
             };
+        };
+        filter = function () {
+            filters.push(Array.prototype.slice.call(arguments, 0, 2));
 
-            var filter, desc, distinct, modify, map;
-            var keys = function () {
-                cursorType = 'openKeyCursor';
+            return {
+                keys: keys,
+                execute: execute,
+                filter: filter,
+                desc: desc,
+                distinct: distinct,
+                modify: modify,
+                limit: limit,
+                map: map
+            };
+        };
+        desc = function () {
+            direction = 'prev';
 
-                return {
-                    desc: desc,
-                    execute: execute,
-                    filter: filter,
-                    distinct: distinct,
-                    map: map
-                };
+            return {
+                keys: keys,
+                execute: execute,
+                filter: filter,
+                distinct: distinct,
+                modify: modify,
+                map: map
             };
-            filter = function () {
-                filters.push(Array.prototype.slice.call(arguments, 0, 2));
-
-                return {
-                    keys: keys,
-                    execute: execute,
-                    filter: filter,
-                    desc: desc,
-                    distinct: distinct,
-                    modify: modify,
-                    limit: limit,
-                    map: map
-                };
+        };
+        distinct = function () {
+            unique = true;
+            return {
+                keys: keys,
+                count: count,
+                execute: execute,
+                filter: filter,
+                desc: desc,
+                modify: modify,
+                map: map
             };
-            desc = function () {
-                direction = 'prev';
-
-                return {
-                    keys: keys,
-                    execute: execute,
-                    filter: filter,
-                    distinct: distinct,
-                    modify: modify,
-                    map: map
-                };
+        };
+        modify = function (update) {
+            indexQueryObj.modifyObj = update;
+            return {
+                execute: execute
             };
-            distinct = function () {
-                unique = true;
-                return {
-                    keys: keys,
-                    count: count,
-                    execute: execute,
-                    filter: filter,
-                    desc: desc,
-                    modify: modify,
-                    map: map
-                };
-            };
-            modify = function (update) {
-                modifyObj = update;
-                return {
-                    execute: execute
-                };
-            };
-            map = function (fn) {
-                mapper = fn;
-
-                return {
-                    execute: execute,
-                    count: count,
-                    keys: keys,
-                    filter: filter,
-                    desc: desc,
-                    distinct: distinct,
-                    modify: modify,
-                    limit: limit,
-                    map: map
-                };
-            };
+        };
+        map = function (fn) {
+            mapper = fn;
 
             return {
                 execute: execute,
@@ -235,56 +139,157 @@ var module;
             };
         };
 
-        ['only', 'bound', 'upperBound', 'lowerBound'].forEach(function (name) {
-            this[name] = function () {
-                return new Query(name, arguments);
-            };
-        }, this);
-
-        this.range = function (opts) {
-            var keys = Object.keys(opts).sort();
-            if (keys.length === 1) {
-                var key = keys[0];
-                var val = opts[key];
-                var name, inclusive;
-                switch (key) {
-                case 'eq': name = 'only'; break;
-                case 'gt':
-                    name = 'lowerBound';
-                    inclusive = true;
-                    break;
-                case 'lt':
-                    name = 'upperBound';
-                    inclusive = true;
-                    break;
-                case 'gte': name = 'lowerBound'; break;
-                case 'lte': name = 'upperBound'; break;
-                default: throw new TypeError('`' + key + '` is not valid key');
-                }
-                return new Query(name, [val, inclusive]);
-            }
-            var x = opts[keys[0]];
-            var y = opts[keys[1]];
-            var pattern = keys.join('-');
-
-            switch (pattern) {
-            case 'gt-lt': case 'gt-lte': case 'gte-lt': case 'gte-lte':
-                return new Query('bound', [x, y, keys[0] === 'gt', keys[1] === 'lt']);
-            default: throw new TypeError(
-              '`' + pattern + '` are conflicted keys'
-            );
-            }
-        };
-
-        this.filter = function () {
-            var query = new Query(null, null);
-            return query.filter.apply(query, arguments);
-        };
-
-        this.all = function () {
-            return this.filter();
+        return {
+            execute: execute,
+            count: count,
+            keys: keys,
+            filter: filter,
+            desc: desc,
+            distinct: distinct,
+            modify: modify,
+            limit: limit,
+            map: map
         };
     };
+
+    var IndexQuery = function (table, db, indexName) {
+        this.table = table;
+        this.db = db;
+        this.indexName = indexName;
+        this.modifyObj = false;
+    };
+    IndexQuery.prototype.runQuery = function (type, args, cursorType, direction, limitRange, filters, mapper) {
+        var that = this,
+            transaction = this.db.transaction(this.table, this.modifyObj ? transactionModes.readwrite : transactionModes.readonly),
+            store = transaction.objectStore(this.table),
+            index = this.indexName ? store.index(this.indexName) : store,
+            keyRange = type ? IDBKeyRange[type].apply(null, args) : null,
+            results = [],
+            indexArgs = [keyRange],
+            counter = 0;
+
+        limitRange = limitRange || null;
+        filters = filters || [];
+        if (cursorType !== 'count') {
+            indexArgs.push(direction || 'next');
+        }
+
+        // create a function that will set in the modifyObj properties into
+        // the passed record.
+        var modifyKeys = this.modifyObj ? Object.keys(this.modifyObj) : false;
+        var modifyRecord = function (record) {
+            var i;
+            for (i = 0; i < modifyKeys.length; i++) {
+                var key = modifyKeys[i];
+                var val = that.modifyObj[key];
+                if (val instanceof Function) {val = val(record);}
+                record[key] = val;
+            }
+            return record;
+        };
+
+        index[cursorType].apply(index, indexArgs).onsuccess = function (e) {
+            var cursor = e.target.result;
+            if (typeof cursor === 'number') {
+                results = cursor;
+            } else if (cursor) {
+                if (limitRange !== null && limitRange[0] > counter) {
+                    counter = limitRange[0];
+                    cursor.advance(limitRange[0]);
+                } else if (limitRange !== null && counter >= (limitRange[0] + limitRange[1])) {
+                    // out of limit range... skip
+                } else {
+                    var matchFilter = true;
+                    var result = 'value' in cursor ? cursor.value : cursor.key;
+
+                    filters.forEach(function (filter) {
+                        if (!filter || !filter.length) {
+                            // Invalid filter do nothing
+                        } else if (filter.length === 2) {
+                            matchFilter = matchFilter && (result[filter[0]] === filter[1]);
+                        } else {
+                            matchFilter = matchFilter && filter[0].apply(undefined, [result]);
+                        }
+                    });
+
+                    if (matchFilter) {
+                        counter++;
+                        results.push(mapper(result));
+                        // if we're doing a modify, run it now
+                        if (that.modifyObj) {
+                            result = modifyRecord(result);
+                            cursor.update(result);
+                        }
+                    }
+                    cursor.continue();
+                }
+            }
+        };
+
+        return new Promise(function (resolve, reject) {
+            transaction.oncomplete = function () {
+                resolve(results);
+            };
+            transaction.onerror = function (e) {
+                reject(e);
+            };
+            transaction.onabort = function (e) {
+                reject(e);
+            };
+        });
+    };
+
+    ['only', 'bound', 'upperBound', 'lowerBound'].forEach(function (name) {
+        IndexQuery.prototype[name] = function () {
+            return new Query(this, name, arguments);
+        };
+    });
+
+    IndexQuery.prototype.range = function (opts) {
+        var keys = Object.keys(opts).sort();
+        if (keys.length === 1) {
+            var key = keys[0];
+            var val = opts[key];
+            var name, inclusive;
+            switch (key) {
+            case 'eq': name = 'only'; break;
+            case 'gt':
+                name = 'lowerBound';
+                inclusive = true;
+                break;
+            case 'lt':
+                name = 'upperBound';
+                inclusive = true;
+                break;
+            case 'gte': name = 'lowerBound'; break;
+            case 'lte': name = 'upperBound'; break;
+            default: throw new TypeError('`' + key + '` is not valid key');
+            }
+            return new Query(this, name, [val, inclusive]);
+        }
+        var x = opts[keys[0]];
+        var y = opts[keys[1]];
+        var pattern = keys.join('-');
+
+        switch (pattern) {
+        case 'gt-lt': case 'gt-lte': case 'gte-lt': case 'gte-lte':
+            return new Query(this, 'bound', [x, y, keys[0] === 'gt', keys[1] === 'lt']);
+        default: throw new TypeError(
+          '`' + pattern + '` are conflicted keys'
+        );
+        }
+    };
+
+    IndexQuery.prototype.filter = function () {
+        var query = new Query(this, null, null);
+        return query.filter.apply(query, arguments);
+    };
+
+    IndexQuery.prototype.all = function () {
+        return this.filter();
+    };
+
+
     var Server = function (db, name, noServerMethods) {
         this.db = db;
         this.name = name;
