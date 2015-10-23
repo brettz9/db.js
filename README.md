@@ -158,7 +158,7 @@ are also supported:
 #### Counting
 
 ```js
-    server.query('test', 'firstName').
+    server.people.query('firstName').
         only('Aaron').
         count().
         execute().
