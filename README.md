@@ -166,7 +166,8 @@ to `execute()`.
 
 ##### Querying with ranges
 
-All ranges supported by IDBKeyRange can be used.
+All ranges supported by IDBKeyRange can be used (`only`,
+`bound`, `lowerBound`, `upperBound`).
 
 ```js
     server.people.query('firstName').
