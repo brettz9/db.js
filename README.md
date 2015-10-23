@@ -393,4 +393,10 @@ library.
 
 The MIT License
 
-Copyright (c) 2012 Aaron Powell
+Copyright (c) 2012-2015 Aaron Powell, Brett Zamir
+
+# Todos
+
+1. Adapt more selectors from
+https://github.com/nolanlawson/pouchdb-find or other APIs
+from http://http://pouchdb.com/api.html or the like?
