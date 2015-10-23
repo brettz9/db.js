@@ -471,6 +471,19 @@ var module;
         return new IndexQuery(table, this.db, index);
     };
 
+    Server.prototype.onabort = function (handler) {
+        this.db.onabort = handler;
+        return this;
+    };
+    Server.prototype.onerror = function (handler) {
+        this.db.onerror = handler;
+        return this;
+    };
+    Server.prototype.onversionchange = function (handler) {
+        this.db.onversionchange = handler;
+        return this;
+    };
+
     Object.defineProperties(Server.prototype, {
         name: {
             get: function () {

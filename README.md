@@ -39,6 +39,8 @@ different database within your application:
         }
     }).then(function (s) {
         server = s;
+    }, function (err) {
+        // Handle error or blocking problems
     });
 ```
 
@@ -357,6 +359,22 @@ Examples:
     server.getIndexedDB();
 ```
 
+## Server event handlers
+
+All of the following are optional and can be chained as desired.
+
+```js
+    server.onabort(function () {
+        // Handle abort event
+    }).onerror(function (err) {
+        // Handle any errors (check err.name)
+    }).onversionchange(function (e) {
+        // Be notified of version changes (can use e.oldVersion and e.newVersion)
+    });
+```
+
+See the IndexedDB spec for the [possible exceptions](http://www.w3.org/TR/IndexedDB/#exceptions).
+
 ## Server properties
 
 ```js
@@ -368,13 +386,10 @@ Examples:
 ## Deleting a database
 
 ```js
-  db.delete(dbName).then(function (err) {
-      if (err) {
-        // Error during database deletion
-      }
-      else {
-        // Should have been a successful database deletion
-      }
+  db.delete(dbName).then(function () {
+      // Should have been a successful database deletion
+  }, function (err) {
+      // Handler error or blocking problems
   });
 ```
 
