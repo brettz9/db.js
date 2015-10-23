@@ -140,9 +140,9 @@ to `execute()`.
         });
 ```
 
-##### Filtering
+##### Querying with filtering
 
-###### Querying objects with filtering
+###### Filter with property and value
 
 ```js
     server.people.query().
