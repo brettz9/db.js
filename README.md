@@ -218,7 +218,7 @@ Examples:
 ```
 
 `modify` can be used after: `all`, `filter`, `desc`, `distinct`, `only`,
-`bound`, `upperBound`, or `lowerBound`.
+`map`, `bound`, `upperBound`, or `lowerBound`.
 
 ### Closing connection
 
