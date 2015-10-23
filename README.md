@@ -397,6 +397,8 @@ Copyright (c) 2012-2015 Aaron Powell, Brett Zamir
 
 # Todos
 
+1. Incorporate [idb-schema](https://github.com/treojs/idb-schema)
+1. Add multiple-item transaction API
 1. Adapt more selectors from
 https://github.com/nolanlawson/pouchdb-find or other APIs
 from http://http://pouchdb.com/api.html or the like?
