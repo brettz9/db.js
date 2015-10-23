@@ -419,3 +419,4 @@ Copyright (c) 2012-2015 Aaron Powell, Brett Zamir
 1. Adapt more selectors from
 https://github.com/nolanlawson/pouchdb-find or other APIs
 from http://http://pouchdb.com/api.html or the like?
+1. Plug-in architecture to allow wrapping of db or server
