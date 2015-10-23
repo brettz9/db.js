@@ -224,13 +224,13 @@ Examples:
 `modify` can be used after: `all`, `filter`, `desc`, `distinct`, `only`,
 `map`, `bound`, `upperBound`, or `lowerBound`.
 
-### Closing connection
+## Closing connection
 
 ```js
     server.close();
 ```
 
-### Retrieving the `indexedDB` object in use
+## Retrieving the `indexedDB` object in use
 
 ```js
     server.getIndexedDB();
