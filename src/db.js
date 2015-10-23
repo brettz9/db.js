@@ -419,33 +419,6 @@ var module;
         });
     };
 
-    Object.defineProperties(Server.prototype, {
-        name: {
-            get: function () {
-                return this._name;
-            },
-            set: function () {
-                throw "'name' is a readonly property";
-            }
-        },
-        version: {
-            get: function () {
-                return this._version;
-            },
-            set: function () {
-                throw "'version' is a readonly property";
-            }
-        },
-        objectStoreNames: {
-            get: function () {
-                return this.db.objectStoreNames;
-            },
-            set: function () {
-                throw "'objectStoreNames' is a readonly property";
-            }
-        }
-    });
-
     Server.prototype.clear = function (table) {
         if (this.closed) {
             throw 'Database has been closed';
@@ -498,6 +471,32 @@ var module;
         return new IndexQuery(table, this.db, index);
     };
 
+    Object.defineProperties(Server.prototype, {
+        name: {
+            get: function () {
+                return this._name;
+            },
+            set: function () {
+                throw "'name' is a readonly property";
+            }
+        },
+        version: {
+            get: function () {
+                return this._version;
+            },
+            set: function () {
+                throw "'version' is a readonly property";
+            }
+        },
+        objectStoreNames: {
+            get: function () {
+                return this.db.objectStoreNames;
+            },
+            set: function () {
+                throw "'objectStoreNames' is a readonly property";
+            }
+        }
+    });
 
     var createSchema = function (e, schema, db) {
         if (typeof schema === 'function') {
