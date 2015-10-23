@@ -114,9 +114,9 @@ This allows removing all items in a table/collection:
 
 #### Querying
 
-Queries require one method or more to determine the type of querying
-(all items, filtering, or applying ranges) and then a subsequent call
-to `execute()`.
+Queries require one or more methods to determine the type of querying
+(all items, filtering, or applying ranges--some of which can be combined
+with some of the others) and then a subsequent call to `execute()`.
 
 ##### Querying all objects
 
