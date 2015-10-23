@@ -36,120 +36,72 @@ var module;
     var dbCache = {};
     var isArray = Array.isArray;
 
+    var createReturnObject = function (thisObj, methods) {
+        var retObj = {};
+        methods.forEach(function (method) {
+            retObj[method] = thisObj[method].bind(thisObj);
+        });
+        return retObj;
+    };
+
     var Query = function (indexQueryObj, type, args) {
-        var direction = 'next',
-            cursorType = 'openCursor',
-            filters = [],
-            limitRange = null,
-            mapper = defaultMapper,
-            unique = false;
+        this.direction = 'next';
+        this.cursorType = 'openCursor';
+        this.filters = [];
+        this.limitRange = null;
+        this.mapper = defaultMapper;
+        this.unique = false;
+        this.indexQueryObj = indexQueryObj;
+        this.type = type;
+        this.args = args;
+    };
+    Query.prototype.execute = function () {
+        return this.indexQueryObj.runQuery(
+            this.type,
+            this.args,
+            this.cursorType,
+            this.unique ? this.direction + 'unique' : this.direction,
+            this.limitRange,
+            this.filters,
+            this.mapper
+        );
+    };
+    Query.prototype.limit = function () {
+        this.limitRange = Array.prototype.slice.call(arguments, 0, 2);
+        if (this.limitRange.length === 1) {
+            this.limitRange.unshift(0);
+        }
+        return createReturnObject(this, ['execute']);
+    };
+    Query.prototype.count = function () {
+        this.direction = null;
+        this.cursorType = 'count';
+        return createReturnObject(this, ['execute']);
+    };
 
-        var execute = function () {
-            return indexQueryObj.runQuery(type, args, cursorType, unique ? direction + 'unique' : direction, limitRange, filters, mapper);
-        };
-
-        var limit = function () {
-            limitRange = Array.prototype.slice.call(arguments, 0, 2);
-            if (limitRange.length === 1) {
-                limitRange.unshift(0);
-            }
-
-            return {
-                execute: execute
-            };
-        };
-        var count = function () {
-            direction = null;
-            cursorType = 'count';
-
-            return {
-                execute: execute
-            };
-        };
-
-        var filter, desc, distinct, modify, map;
-        var keys = function () {
-            cursorType = 'openKeyCursor';
-
-            return {
-                desc: desc,
-                execute: execute,
-                filter: filter,
-                distinct: distinct,
-                map: map
-            };
-        };
-        filter = function () {
-            filters.push(Array.prototype.slice.call(arguments, 0, 2));
-
-            return {
-                keys: keys,
-                execute: execute,
-                filter: filter,
-                desc: desc,
-                distinct: distinct,
-                modify: modify,
-                limit: limit,
-                map: map
-            };
-        };
-        desc = function () {
-            direction = 'prev';
-
-            return {
-                keys: keys,
-                execute: execute,
-                filter: filter,
-                distinct: distinct,
-                modify: modify,
-                map: map
-            };
-        };
-        distinct = function () {
-            unique = true;
-            return {
-                keys: keys,
-                count: count,
-                execute: execute,
-                filter: filter,
-                desc: desc,
-                modify: modify,
-                map: map
-            };
-        };
-        modify = function (update) {
-            indexQueryObj.modifyObj = update;
-            return {
-                execute: execute
-            };
-        };
-        map = function (fn) {
-            mapper = fn;
-
-            return {
-                execute: execute,
-                count: count,
-                keys: keys,
-                filter: filter,
-                desc: desc,
-                distinct: distinct,
-                modify: modify,
-                limit: limit,
-                map: map
-            };
-        };
-
-        return {
-            execute: execute,
-            count: count,
-            keys: keys,
-            filter: filter,
-            desc: desc,
-            distinct: distinct,
-            modify: modify,
-            limit: limit,
-            map: map
-        };
+    Query.prototype.keys = function () {
+        this.cursorType = 'openKeyCursor';
+        return createReturnObject(this, ['desc', 'execute', 'filter', 'distinct', 'map']);
+    };
+    Query.prototype.filter = function () {
+        this.filters.push(Array.prototype.slice.call(arguments, 0, 2));
+        return createReturnObject(this, ['desc', 'execute', 'filter', 'distinct', 'map', 'keys', 'modify', 'limit']);
+    };
+    Query.prototype.desc = function () {
+        this.direction = 'prev';
+        return createReturnObject(this, ['execute', 'filter', 'distinct', 'map', 'keys', 'modify']);
+    };
+    Query.prototype.distinct = function () {
+        this.unique = true;
+        return createReturnObject(this, ['execute', 'filter', 'map', 'keys', 'modify', 'count', 'desc']);
+    };
+    Query.prototype.modify = function (update) {
+        this.indexQueryObj.modifyObj = update;
+        return createReturnObject(this, ['execute']);
+    };
+    Query.prototype.map = function (fn) {
+        this.mapper = fn;
+        return createReturnObject(this, ['desc', 'execute', 'filter', 'distinct', 'map', 'keys', 'modify', 'limit', 'count']);
     };
 
     var IndexQuery = function (table, db, indexName) {
