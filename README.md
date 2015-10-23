@@ -115,8 +115,10 @@ This allows removing all items in a table/collection:
 #### Querying
 
 Queries require one or more methods to determine the type of querying
-(all items, filtering, or applying ranges--some of which can be combined
-with some of the others) and then a subsequent call to `execute()`.
+(all items, filtering, applying ranges, limits, distinct values, or
+custom mapping--some of which can be combined
+with some of the others), any methods for cursor direction, and then a
+subsequent call to `execute()`.
 
 ##### Querying all objects
 
@@ -198,6 +200,92 @@ are also supported:
         range({gte: 30, lte: 50}).
         then(function (results) {
             // do something with the results
+        });
+```
+
+##### Querying for distinct values
+
+Will return only one record
+
+```js
+    spec.server.test.
+        query('firstName').
+        only('Aaron').
+        distinct().
+        execute().
+        then(function (data) {
+            //
+        });
+```
+
+##### Limiting cursor range
+
+Unlike key ranges which filter by the range of present values,
+one may define a cursor range to determine whether to
+skip through a certain number of initial result items and
+to select how many items (up to the amount available) should
+be retrieved from that point in the navigation of the cursor.
+
+```js
+    server.people.
+        query('firstName').
+        all().
+        limit(1, 3).
+        execute().
+        then(function (data) {
+            // Skips the first item and obtains the next 3 items (or less if there are fewer)
+        });
+```
+
+#### Cursor direction (desc)
+
+The `desc` method may be used to change cursor
+direction to descending order:
+
+```js
+  server.people.query().
+      all().
+      desc().
+      execute().
+      then(function (results) {
+          // Array of results will be in descending order
+      });
+```
+
+#### Retrieving special types of values
+
+##### Keys
+
+Keys may be retrieved with or without an index:
+
+```js
+    server.people.query('firstName').
+        only('Aaron').
+        keys().
+        execute().
+        then(function (results) {
+            // `results` will contain one 'Aaron' value for each
+            //    item in the people store with that first name
+        });
+```
+
+##### Mapping
+
+The `map` method allows you to modify the object being returned:
+
+```js
+    server.people.
+        query('age').
+        lowerBound(30).
+        map(function (value) {
+            return {
+                fullName: value.firstName + ' ' + value.lastName,
+                raw: value
+            };
+        }).
+        execute().
+        then(function (data) {
+            // An array of people objects containing `fullName` and `raw` properties
         });
 ```
 

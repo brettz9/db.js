@@ -491,7 +491,6 @@
                     execute().
                     then(function (data) {
                         expect(data.length).toEqual(1);
-
                         done();
                     });
             });
@@ -506,12 +505,12 @@
                     execute().
                     then(function (data) {
                         expect(data[0].firstName).toEqual(spec.item1.firstName);
-
+                        expect(data.length).toEqual(1);
                         done();
                     });
             });
 
-            it('should return only one record per key in a dinstinct query', function (done) {
+            it('should return only one record per key in a distinct query', function (done) {
                 var spec = this;
 
                 spec.server.test.
@@ -529,7 +528,7 @@
                     });
             });
 
-            it('should return only one record per key in a dinstinct query in descending order', function (done) {
+            it('should return only one record per key in a distinct query in descending order', function (done) {
                 var spec = this;
 
                 spec.server.test.
