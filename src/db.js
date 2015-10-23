@@ -541,7 +541,7 @@ var module;
             var request;
 
             return new Promise(function (resolve, reject) {
-                request = indexedDB.deleteDatabase(dbName);
+                request = getIndexedDB().deleteDatabase(dbName);
 
                 request.onsuccess = function () {
                     resolve();
@@ -553,6 +553,9 @@ var module;
                     reject(e);
                 };
             });
+        },
+        cmp: function (param1, param2) {
+            return getIndexedDB().cmp(param1, param2);
         }
     };
 

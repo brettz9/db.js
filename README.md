@@ -370,6 +370,15 @@ Examples:
   });
 ```
 
+## Comparing two keys
+
+Returns 1 if the first key is greater than the second, -1 if the first
+is less than the second, and 0 if the first is equal to the second.
+
+```js
+  db.cmp(key1, key2);
+```
+
 # Deferred/Promise notes
 
 db.js used the es6 Promise spec to handle asynchronous operations.
