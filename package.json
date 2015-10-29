@@ -1,5 +1,7 @@
 {
   "name": "db.js",
+  "author": "Aaron Powell <me@aaron-powell.com>",
+  "contributors": ["Brett Zamir"],
   "description": "db.js is a wrapper for IndexedDB to make it easier to work against, making it look more like a queryable API.",
   "version": "0.10.2",
   "homepage": "http://aaronpowell.github.com/db.js/",
@@ -18,6 +20,9 @@
   "scripts": {
     "test": "grunt test",
     "prepublish": "bower install"
+  },
+  "dependencies": {
+
   },
   "devDependencies": {
     "express": "*",
