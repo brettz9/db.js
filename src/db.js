@@ -16,8 +16,8 @@ var module;
     function getIndexedDB () {
         if (!indexedDB) {
             indexedDB = window.indexedDB || window.webkitIndexedDB ||
-              window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB ||
-              (window.indexedDB === null && window.shimIndexedDB ?
+                window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB || // jscs:disable maximumLineLength
+                (window.indexedDB === null && window.shimIndexedDB ?
                 window.shimIndexedDB : undefined
             );
 
@@ -240,7 +240,7 @@ var module;
             return new Query(this, 'bound', [x, y, keys[0] === 'gt', keys[1] === 'lt']);
         default: throw new TypeError(
           '`' + pattern + '` are conflicted keys'
-        );
+    );
         }
     };
 
