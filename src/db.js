@@ -1,5 +1,4 @@
 /*global Promise, define, window*/
-/*jslint vars:true, continue:true*/
 /*eslint no-loop-func: 0, no-unused-vars: 0, guard-for-in: 0*/
 var module;
 (function (window) {
@@ -14,7 +13,7 @@ var module;
 
     var hasOwn = Object.prototype.hasOwnProperty;
 
-    var getIndexedDB = function () {
+    function getIndexedDB () {
         if (!indexedDB) {
             indexedDB = window.indexedDB || window.webkitIndexedDB ||
               window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB ||
@@ -27,24 +26,24 @@ var module;
             }
         }
         return indexedDB;
-    };
+    }
 
-    var defaultMapper = function (value) {
+    function defaultMapper (value) {
         return value;
-    };
+    }
 
     var dbCache = {};
     var isArray = Array.isArray;
 
-    var createReturnObject = function (thisObj, methods) {
+    function createReturnObject (thisObj, methods) {
         var retObj = {};
         methods.forEach(function (method) {
             retObj[method] = thisObj[method].bind(thisObj);
         });
         return retObj;
-    };
+    }
 
-    var Query = function (indexQueryObj, type, args) {
+    function Query (indexQueryObj, type, args) {
         this.direction = 'next';
         this.cursorType = 'openCursor';
         this.filters = [];
@@ -54,7 +53,7 @@ var module;
         this.indexQueryObj = indexQueryObj;
         this.type = type;
         this.args = args;
-    };
+    }
     Query.prototype.execute = function () {
         return this.indexQueryObj.runQuery(
             this.type,
@@ -81,19 +80,28 @@ var module;
 
     Query.prototype.keys = function () {
         this.cursorType = 'openKeyCursor';
-        return createReturnObject(this, ['desc', 'execute', 'filter', 'distinct', 'map']);
+        return createReturnObject(this,
+          ['desc', 'execute', 'filter', 'distinct', 'map']
+        );
     };
     Query.prototype.filter = function () {
         this.filters.push(Array.prototype.slice.call(arguments, 0, 2));
-        return createReturnObject(this, ['desc', 'execute', 'filter', 'distinct', 'map', 'keys', 'modify', 'limit']);
+        return createReturnObject(this, [
+            'desc', 'execute', 'filter', 'distinct',
+            'map', 'keys', 'modify', 'limit'
+        ]);
     };
     Query.prototype.desc = function () {
         this.direction = 'prev';
-        return createReturnObject(this, ['execute', 'filter', 'distinct', 'map', 'keys', 'modify']);
+        return createReturnObject(this, [
+            'execute', 'filter', 'distinct', 'map', 'keys', 'modify'
+        ]);
     };
     Query.prototype.distinct = function () {
         this.unique = true;
-        return createReturnObject(this, ['execute', 'filter', 'map', 'keys', 'modify', 'count', 'desc']);
+        return createReturnObject(this, [
+            'execute', 'filter', 'map', 'keys', 'modify', 'count', 'desc'
+        ]);
     };
     Query.prototype.modify = function (update) {
         this.indexQueryObj.modifyObj = update;
@@ -101,16 +109,19 @@ var module;
     };
     Query.prototype.map = function (fn) {
         this.mapper = fn;
-        return createReturnObject(this, ['desc', 'execute', 'filter', 'distinct', 'map', 'keys', 'modify', 'limit', 'count']);
+        return createReturnObject(this, [
+            'desc', 'execute', 'filter', 'distinct',
+            'map', 'keys', 'modify', 'limit', 'count'
+        ]);
     };
 
-    var IndexQuery = function (table, db, indexName) {
+    function IndexQuery (table, db, indexName) {
         this.table = table;
         this.db = db;
         this.indexName = indexName;
         this.modifyObj = false;
-    };
-    IndexQuery.prototype.runQuery = function (type, args, cursorType, direction, limitRange, filters, mapper) {
+    }
+    IndexQuery.prototype.runQuery = function (type, args, cursorType, direction, limitRange, filters, mapper) { // jscs:disable maximumLineLength
         var that = this,
             transaction = this.db.transaction(this.table, this.modifyObj ? transactionModes.readwrite : transactionModes.readonly),
             store = transaction.objectStore(this.table),
@@ -126,10 +137,10 @@ var module;
             indexArgs.push(direction || 'next');
         }
 
-        // create a function that will set in the modifyObj properties into
-        // the passed record.
+        /* Create a function that will set in the modifyObj properties into
+            the passed record. */
         var modifyKeys = this.modifyObj ? Object.keys(this.modifyObj) : false;
-        var modifyRecord = function (record) {
+        function modifyRecord (record) {
             var i;
             for (i = 0; i < modifyKeys.length; i++) {
                 var key = modifyKeys[i];
@@ -138,7 +149,7 @@ var module;
                 record[key] = val;
             }
             return record;
-        };
+        }
 
         index[cursorType].apply(index, indexArgs).onsuccess = function (e) {
             var cursor = e.target.result;
@@ -148,14 +159,15 @@ var module;
                 if (limitRange !== null && limitRange[0] > counter) {
                     counter = limitRange[0];
                     cursor.advance(limitRange[0]);
-                } else if (limitRange !== null && counter >= (limitRange[0] + limitRange[1])) {
-                    // out of limit range... skip
+                } else if (limitRange !== null &&
+                    counter >= (limitRange[0] + limitRange[1])) { // jscs:disable disallowEmptyBlocks, maximumLineLength
+                    // Out of limit range... skip
                 } else {
                     var matchFilter = true;
                     var result = 'value' in cursor ? cursor.value : cursor.key;
 
                     filters.forEach(function (filter) {
-                        if (!filter || !filter.length) {
+                        if (!filter || !filter.length) { // jscs:disable disallowEmptyBlocks, maximumLineLength
                             // Invalid filter do nothing
                         } else if (filter.length === 2) {
                             matchFilter = matchFilter && (result[filter[0]] === filter[1]);
@@ -167,7 +179,7 @@ var module;
                     if (matchFilter) {
                         counter++;
                         results.push(mapper(result));
-                        // if we're doing a modify, run it now
+                        // If we're doing a modify, run it now
                         if (that.modifyObj) {
                             result = modifyRecord(result);
                             cursor.update(result);
@@ -241,8 +253,7 @@ var module;
         return this.filter();
     };
 
-
-    var Server = function (db, name, version, noServerMethods) {
+    function Server (db, name, version, noServerMethods) {
         this.db = db;
         this._name = name;
         this._version = version;
@@ -272,7 +283,7 @@ var module;
                 }
             }(db.objectStoreNames[i]));
         }
-    };
+    }
     Server.prototype.getIndexedDB = function () {
         return this.db;
     };
@@ -332,16 +343,17 @@ var module;
                 resolve(records, that);
             };
             transaction.onerror = function (e) {
-                // prevent Firefox from throwing a ConstraintError and
-                // aborting (hard)
-                // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
+                /*
+                    Prevent Firefox from throwing a ConstraintError and
+                    aborting (hard)
+                    https://bugzilla.mozilla.org/show_bug.cgi?id=872873
+                */
                 e.preventDefault();
                 reject(e);
             };
             transaction.onabort = function (e) {
                 reject(e);
             };
-
         });
     };
 
@@ -384,8 +396,10 @@ var module;
                     req = store.put(record);
                 }
 
-                req.onsuccess = function (/* e */) {
+                req.onsuccess = function () {
+                    // jscs:disable requireCapitalizedComments
                     // deferred.notify(); es6 promise can't notify
+                    // jscs:enable requireCapitalizedComments
                 };
             });
 
@@ -511,7 +525,7 @@ var module;
         }
     });
 
-    var createSchema = function (e, schema, db) {
+    function createSchema (e, schema, db) {
         if (typeof schema === 'function') {
             schema = schema();
         }
@@ -536,16 +550,16 @@ var module;
                 }
             }
         }
-    };
+    }
 
-    var open = function (e, server, version, noServerMethods /*, schema*/) {
+    function open (e, server, version, noServerMethods /*, schema*/) {
         var db = e.target.result;
         var s = new Server(db, server, version, noServerMethods);
 
         dbCache[server] = db;
 
         return Promise.resolve(s);
-    };
+    }
 
     var db = {
         version: '0.10.2',
