@@ -4,23 +4,21 @@ var express = require('express');
 var app = module.exports = express();
 var fs = require('fs');
 var path = require('path');
+var bodyParser = require('body-parser');
+var errorHandler = require('errorhandler');
 
 (function () {'use strict';
-
     app.set('views', path.join(__dirname, 'views'));
-    app.use('/lib', express.static(path.join(__dirname, 'lib')));
+    app.use('/bower', express.static(path.join(__dirname, '../bower')));
     app.use('/specs', express.static(path.join(__dirname, 'specs')));
     app.set('view engine', 'jade');
-    app.use(express.bodyParser());
-    app.use(express.methodOverride());
-    app.use(app.router);
+    app.use('/foo', bodyParser.json());
+    app.use('/', bodyParser.text({type: 'text/html'}));
 
-    app.configure('development', function () {
-        app.use(express.errorHandler({dumpExceptions: true, showStack: true}));
-    });
-    app.configure('production', function () {
-        app.use(express.errorHandler());
-    });
+    var env = process.env.NODE_ENV || 'development';
+    if (env === 'development') {
+        app.use(errorHandler({dumpExceptions: true, showStack: true}));
+    }
 
     app.get('/foo', function (req, res) {
         res.json({
@@ -41,7 +39,7 @@ var path = require('path');
                 return;
             }
             res.type('application/javascript');
-            res.send(statusOk, data);
+            res.status(statusOk).send(data);
         });
     });
 

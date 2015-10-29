@@ -110,7 +110,7 @@
   "requireNamedUnassignedFunctions": false,
   "requireNewlineBeforeBlockStatements": false,
   "requireNumericLiterals": true,
-  "requireObjectKeysOnNewLine": true,
+  "requireObjectKeysOnNewLine": false,
   "requireOperatorBeforeLineBreak": true,
   "requirePaddingNewLineAfterVariableDeclaration": false,
   "requirePaddingNewLinesAfterBlocks": false,
