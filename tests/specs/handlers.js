@@ -5,7 +5,7 @@
 (function (db, describe, it, expect) {
     'use strict';
 
-    describe('server handlers', function () {
+    describe('handlers', function () {
         var dbName = 'tests',
             initialVersion = 1,
             indexedDB = window.indexedDB || window.webkitIndexedDB ||
