@@ -253,10 +253,11 @@ var module;
         return this.filter();
     };
 
-    function Server (db, name, version, noServerMethods) {
+    function Server (e, db, name, version, noServerMethods) {
         this.db = db;
         this._name = name;
         this._version = version;
+        this._successEvent = e; // Not in use, but exposing for completion's sake
         this.closed = false;
         if (noServerMethods) {
             return;
@@ -396,11 +397,11 @@ var module;
                     req = store.put(record);
                 }
 
-                req.onsuccess = function () {
-                    // jscs:disable requireCapitalizedComments
+                // jscs:disable requireCapitalizedComments
+                req.onsuccess = function (/* e */) {
                     // deferred.notify(); es6 promise can't notify
-                    // jscs:enable requireCapitalizedComments
                 };
+                // jscs:enable requireCapitalizedComments
             });
 
             transaction.oncomplete = function () {
@@ -430,6 +431,9 @@ var module;
             transaction.onerror = function (e) {
                 reject(e);
             };
+            transaction.onabort = function (e) {
+                reject(e);
+            };
         });
     };
 
@@ -446,6 +450,9 @@ var module;
                 resolve();
             };
             transaction.onerror = function (e) {
+                reject(e);
+            };
+            transaction.onabort = function (e) {
                 reject(e);
             };
         });
@@ -473,6 +480,9 @@ var module;
                 resolve(e.target.result);
             };
             transaction.onerror = function (e) {
+                reject(e);
+            };
+            transaction.onabort = function (e) {
                 reject(e);
             };
         });
@@ -568,7 +578,7 @@ var module;
         }
         var s = dbCache[server][version];
         if (!s || s.closed) {
-            s = new Server(db, server, version, noServerMethods);
+            s = new Server(e, db, server, version, noServerMethods);
             dbCache[server][version] = s;
         }
 
@@ -615,8 +625,8 @@ var module;
             return new Promise(function (resolve, reject) {
                 request = getIndexedDB().deleteDatabase(dbName);
 
-                request.onsuccess = function () {
-                    resolve();
+                request.onsuccess = function (ev) {
+                    resolve(ev);
                 };
                 request.onerror = function (err) {
                     reject(err);
