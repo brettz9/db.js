@@ -33,7 +33,7 @@ var errorHandler = require('errorhandler');
 
     var statusOk = 200;
     app.get('/src/db.js', function (req, res) {
-        fs.readFile(path.join(__dirname, '/../src/db.js'), function (err, data) {
+        fs.readFile(path.join(__dirname, '/../src/db.js'), function (err, data) { // jscs:disable maximumLineLength
             if (err) {
                 console.log("error reading file");
                 return;
@@ -45,5 +45,4 @@ var errorHandler = require('errorhandler');
 
     var defaultPort = 3000;
     app.listen(process.env.PORT || defaultPort);
-
 }());
