@@ -364,7 +364,7 @@ Examples:
 All of the following are optional and can be chained as desired.
 
 ```js
-    server.onabort(function () {
+    server.onabort(function (e) {
         // Handle abort event
     }).onerror(function (err) {
         // Handle any errors (check err.name)
