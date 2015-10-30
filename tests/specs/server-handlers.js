@@ -7,6 +7,7 @@
 
     describe('server handlers', function () {
         var dbName = 'tests',
+            initialVersion = 1,
             indexedDB = window.indexedDB || window.webkitIndexedDB ||
             window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
 
@@ -59,7 +60,7 @@
             req.onsuccess = function () {document.body.innerHTML += 'beforeEach-success\n';
                 db.open({
                     server: dbName,
-                    version: 1,
+                    version: initialVersion,
                     schema: schema
                 }).then(function (s) {
                     spec.server = s;
@@ -128,6 +129,18 @@
             });
         });
 
+        it('should receive blocked events (on database delete)', function (done) {
+            setUp(function (spec, takeDown) {
+                db.delete(dbName).then(null, function (err) {
+                    expect(err.oldVersion).toEqual(initialVersion);
+                    expect(err.newVersion).toEqual(null);
+                    if (!spec.server.closed) {document.body.innerHTML += 'not-closed\n';
+                        spec.server.close();
+                    }
+                    takeDown(done);
+                });
+            });
+        });
         return;
 
         // Can't seem to get these to be handled or recover
@@ -166,30 +179,5 @@
                 });
             });
         });
-
-        /* jscs:disable
-        it('should receive blocked events (on database delete)', function (done) {
-
-        });
-        it('should receive error events', function (done) {
-            var spec = this;
-            spec.server.test.onerror(function (err) {
-                alert(err.name);
-                done();
-            }).query().all().execute();
-            db.open({
-                server: dbName,
-                version: 0,
-                schema: schema
-            }).then(function (data) {
-                done();
-            });
-        });
-        it('should receive abort events', function (done) {
-            this.server.onabort(function () {
-                done();
-            });
-        });
-        */
     });
 }(window.db, window.describe, window.it, window.expect));
