@@ -1,4 +1,4 @@
-/*global Promise, define, window*/
+/*global Promise, define, window */
 /*eslint no-loop-func: 0, no-unused-vars: 0, guard-for-in: 0*/
 var module;
 (function (window) {
@@ -485,16 +485,25 @@ var module;
         return new IndexQuery(table, this.db, index);
     };
 
-    Server.prototype.onabort = function (handler) {
+    Server.prototype.onabort = function (table, handler) {
         this.db.onabort = handler;
+        if (this[table]) {
+            return this[table];
+        }
         return this;
     };
-    Server.prototype.onerror = function (handler) {
+    Server.prototype.onerror = function (table, handler) {
         this.db.onerror = handler;
+        if (this[table]) {
+            return this[table];
+        }
         return this;
     };
-    Server.prototype.onversionchange = function (handler) {
+    Server.prototype.onversionchange = function (table, handler) {
         this.db.onversionchange = handler;
+        if (this[table]) {
+            return this[table];
+        }
         return this;
     };
 
@@ -554,9 +563,14 @@ var module;
 
     function open (e, server, version, noServerMethods /*, schema*/) {
         var db = e.target.result;
-        var s = new Server(db, server, version, noServerMethods);
-
-        dbCache[server] = db;
+        if (!dbCache[server]) {
+            dbCache[server] = {};
+        }
+        var s = dbCache[server][version];
+        if (!s || s.closed) {
+            s = new Server(db, server, version, noServerMethods);
+            dbCache[server][version] = s;
+        }
 
         return Promise.resolve(s);
     }
@@ -567,10 +581,11 @@ var module;
             var request;
 
             return new Promise(function (resolve, reject) {
-                if (dbCache[options.server]) {
+                var cached = dbCache[options.server];
+                if (cached && cached[options.version]) {
                     open({
                         target: {
-                            result: dbCache[options.server]
+                            result: cached[options.version]
                         }
                     }, options.server, options.version, options.noServerMethods).
                     then(resolve, reject);
@@ -585,11 +600,11 @@ var module;
                     request.onupgradeneeded = function (e) {
                         createSchema(e, options.schema, e.target.result);
                     };
-                    request.onerror = function (e) {
-                        reject(e);
+                    request.onerror = function (err) {
+                        reject(err);
                     };
-                    request.onblocked = function (e) {
-                        reject(e);
+                    request.onblocked = function (err) {
+                        reject(err);
                     };
                 }
             });
@@ -603,11 +618,11 @@ var module;
                 request.onsuccess = function () {
                     resolve();
                 };
-                request.onerror = function (e) {
-                    reject(e);
+                request.onerror = function (err) {
+                    reject(err);
                 };
-                request.onblocked = function (e) {
-                    reject(e);
+                request.onblocked = function (err) {
+                    reject(err);
                 };
             });
         },
