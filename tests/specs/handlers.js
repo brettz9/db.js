@@ -138,14 +138,15 @@
                 db.open({
                     server: dbName,
                     version: newVersion,
-                    schema: schema,
-                    blocked: function (e /* , resolve, reject */) { // jscs:disable requireCapitalizedComments
-                        expect(e.oldVersion).toEqual(1);
-                        expect(e.newVersion).toEqual(newVersion);
-                        if (!spec.server.closed) {document.body.innerHTML += 'not-closed\n';
-                            spec.server.close();
-                        }
+                    schema: schema
+                }).catch(function (e) {
+                    expect(e.oldVersion).toEqual(1);
+                    expect(e.newVersion).toEqual(newVersion);
+                    if (!spec.server.closed) {document.body.innerHTML += 'not-closed\n';
+                        spec.server.close();
+                        return e.resume;
                     }
+                    throw e;
                 }).then(function (s) {
                     s.close(); // Close this connection too to avoid blocking next set of tests
                     takeDown(done);
