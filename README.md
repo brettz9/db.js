@@ -27,12 +27,6 @@ different database within your application:
     db.open({
         server: 'my-app',
         version: 1,
-        blocked: function (server) {
-            // This optional function allows you to close
-            //   the database upon connection blocks so
-            //   that the database can proceed successfully
-            //   to the following "then" condition
-        },
         schema: {
             people: {
                 key: {keyPath: 'id' , autoIncrement: true},
@@ -43,6 +37,17 @@ different database within your application:
                 }
             }
         }
+    }).catch(function (err) {
+        // You might add this catch statement for
+        //   blocking errors in order to close
+        //   any pre-existing connections and resume
+        //   to the following "then" condition by
+        //   returning the "resume" promise
+        if (err.type === 'blocked') {
+            oldConnection.close();
+            return e.resume;
+        }
+        throw e;
     }).then(function (s) {
         server = s;
     }, function (err) {
