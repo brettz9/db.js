@@ -142,6 +142,7 @@
                 }).catch(function (e) {
                     expect(e.oldVersion).toEqual(1);
                     expect(e.newVersion).toEqual(newVersion);
+                    expect(e.type).toEqual('blocked');
                     if (!spec.server.closed) {document.body.innerHTML += 'not-closed\n';
                         spec.server.close();
                         return e.resume;
