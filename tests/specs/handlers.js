@@ -97,6 +97,7 @@
                 console.log('db blocked', arguments, spec);
             };
         }
+
         it('should receive onabort events', function (done) {
             setUp(function (spec, takeDown) {
                 spec.server.test.onabort(function (vce) {
@@ -129,6 +130,29 @@
             });
         });
 
+        it('should receive blocked events (on db open)', function (done) {
+            setUp(function (spec, takeDown) {
+                var newVersion = 11;
+                schema.changed = schema.test;
+
+                db.open({
+                    server: dbName,
+                    version: newVersion,
+                    schema: schema,
+                    blocked: function (e /* , resolve, reject */) { // jscs:disable requireCapitalizedComments
+                        expect(e.oldVersion).toEqual(1);
+                        expect(e.newVersion).toEqual(newVersion);
+                        if (!spec.server.closed) {document.body.innerHTML += 'not-closed\n';
+                            spec.server.close();
+                        }
+                    }
+                }).then(function (s) {
+                    s.close(); // Close this connection too to avoid blocking next set of tests
+                    takeDown(done);
+                });
+            });
+        });
+
         it('should receive blocked events (on database delete)', function (done) {
             setUp(function (spec, takeDown) {
                 db.delete(dbName).then(null, function (err) {
@@ -141,8 +165,8 @@
                 });
             });
         });
-        return;
 
+        return;
         // Can't seem to get these to be handled or recover
         it('should receive onerror events', function (done) {
             setUp(function (spec, takeDown) {
@@ -154,30 +178,15 @@
                     takeDown(done);
                 });
                 var tx = spec.server.db.transaction('test');
-                tx.delete();
+                tx.oncomplete = function () {
+                    // alert('working here');
+                };
+                tx.onerror = function () {
+                    alert('error here');
+                };
             });
         });
-
         // jscs:disable requireCapitalizedComments
         // jasmine.DEFAULT_TIMEOUT_INTERVAL = 15000;
-        it('should receive blocked events (on db open)', function (done) {
-            setUp(function (spec, takeDown) {
-                var newVersion = 11;
-                schema.changed = schema.test;
-
-                db.open({
-                    server: dbName,
-                    version: newVersion,
-                    schema: schema
-                }).then(null, function (err) {document.body.innerHTML += 'then-error\n';
-                    // Returns the attempted version, but as an error
-                    expect(err.newVersion).toEqual(newVersion);
-                    if (!spec.server.closed) {document.body.innerHTML += 'not-closed\n';
-                        spec.server.close();
-                    }
-                    takeDown(done);
-                });
-            });
-        });
     });
 }(window.db, window.describe, window.it, window.expect));

@@ -479,6 +479,7 @@ var module;
             req.onsuccess = function (e) {
                 resolve(e.target.result);
             };
+            // And transaction.oncomplete?
             transaction.onerror = function (e) {
                 reject(e);
             };
@@ -614,7 +615,12 @@ var module;
                         reject(err);
                     };
                     request.onblocked = function (err) {
-                        reject(err);
+                        if (options.blocked) {
+                            options.blocked(err, resolve, reject);
+                        }
+                        else {
+                            reject(err);
+                        }
                     };
                 }
             });

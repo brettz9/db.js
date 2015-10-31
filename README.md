@@ -27,6 +27,12 @@ different database within your application:
     db.open({
         server: 'my-app',
         version: 1,
+        blocked: function (server) {
+            // This optional function allows you to close
+            //   the database upon connection blocks so
+            //   that the database can proceed successfully
+            //   to the following "then" condition
+        },
         schema: {
             people: {
                 key: {keyPath: 'id' , autoIncrement: true},
