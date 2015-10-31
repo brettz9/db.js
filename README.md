@@ -47,6 +47,7 @@ different database within your application:
             oldConnection.close();
             return e.resume;
         }
+        // Handler other errors here
         throw e;
     }).then(function (s) {
         server = s;
