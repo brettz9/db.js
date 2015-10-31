@@ -146,7 +146,7 @@
                         spec.server.close();
                         return e.resume;
                     }
-                    throw e;
+                    throw e; // Shouldn't get here
                 }).then(function (s) {
                     s.close(); // Close this connection too to avoid blocking next set of tests
                     takeDown(done);
