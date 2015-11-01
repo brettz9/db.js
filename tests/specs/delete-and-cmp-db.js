@@ -26,18 +26,16 @@
                         addReq2.onsuccess = function (e2) {
                             key2 = e2.target.result;
                             req.result.close();
-                            done();
+                            var second = 0;
+                            // Chrome is not closing immediately
+                            window.setTimeout(function () {
+                                done();
+                            }, second);
                         };
                     };
                 };
-                request.onblocked = function (e) {
-                    done(e);
-                };
             };
             request.onerror = function (e) {
-                done(e);
-            };
-            request.onblocked = function (e) {
                 done(e);
             };
         });
