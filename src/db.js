@@ -1,5 +1,7 @@
-/*global Promise, define, window */
+/*global Promise, define, require, window */
 /*eslint no-loop-func: 0, no-unused-vars: 0, guard-for-in: 0*/
+var Schema = require('idb-schema');
+
 var module;
 (function (window) {
     'use strict';
@@ -588,28 +590,43 @@ var module;
 
     var db = {
         version: '0.10.2',
+        schema: function () {
+            var schema = new Schema();
+            // Todo: Try adding (bound) to prototype of Schema instead
+            this.schemaInstance = schema;
+            schema.open = this.open.bind(this);
+            schema.delete = this.delete.bind(this);
+            schema.cmp = this.cmp.bind(this);
+            return schema;
+        },
         open: function (options) {
             var request;
 
             return new Promise(function (resolve, reject) {
-                var cached = dbCache[options.server];
-                if (cached && cached[options.version]) {
+                var schema = options.schema;
+                var server = options.server;
+                var cached = dbCache[server];
+                var schemaInstance = this.schemaInstance;
+                var version = schemaInstance ? schemaInstance.version() : options.version;
+                var noServerMethods = options.noServerMethods;
+
+                if (cached && cached[version]) {
                     open({
                         target: {
-                            result: cached[options.version]
+                            result: cached[version]
                         }
-                    }, options.server, options.version, options.noServerMethods).
+                    }, server, version, noServerMethods).
                     then(resolve, reject);
                 } else {
-                    request = getIndexedDB().open(options.server, options.version);
+                    request = getIndexedDB().open(server, version);
 
                     request.onsuccess = function (e) {
-                        open(e, options.server, options.version, options.noServerMethods).
+                        open(e, server, version, noServerMethods).
                             then(resolve, reject);
                     };
 
-                    request.onupgradeneeded = function (e) {
-                        createSchema(e, options.schema, e.target.result);
+                    request.onupgradeneeded = schemaInstance ? schemaInstance.callback() : function (e) {
+                        createSchema(e, schema, e.target.result);
                     };
                     request.onerror = function (err) {
                         reject(err);
@@ -620,7 +637,7 @@ var module;
                             //   request is still open and its onsuccess will still fire
                             //   if the user unblocks by closing the blocking connection
                             request.onsuccess = function (e) {
-                                open(e, options.server, options.version, options.noServerMethods).
+                                open(e, server, version, noServerMethods).
                                     then(res, rej);
                             };
                             request.onerror = function (er) {

@@ -22,7 +22,7 @@
     "prepublish": "bower install"
   },
   "dependencies": {
-
+    "idb-schema": "2.1.x"
   },
   "devDependencies": {
     "express": "*",
