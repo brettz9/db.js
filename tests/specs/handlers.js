@@ -7,7 +7,7 @@
 
     describe('handlers', function () {
         var dbName = 'tests',
-            initialVersion = 1,
+            initialVersion = 2,
             indexedDB = window.indexedDB || window.webkitIndexedDB ||
             window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
 
@@ -140,7 +140,7 @@
                     version: newVersion,
                     schema: schema
                 }).catch(function (e) {
-                    expect(e.oldVersion).toEqual(1);
+                    expect(e.oldVersion).toEqual(initialVersion);
                     expect(e.newVersion).toEqual(newVersion);
                     expect(e.type).toEqual('blocked');
                     if (!spec.server.closed) {document.body.innerHTML += 'not-closed\n';
@@ -163,6 +163,23 @@
                     if (!spec.server.closed) {document.body.innerHTML += 'not-closed\n';
                         spec.server.close();
                     }
+                    takeDown(done);
+                });
+            });
+        });
+
+        it('should receive onerror events', function (done) {
+            setUp(function (spec, takeDown) {
+                spec.server.close();
+                var badVersion = 1;
+                db.open({
+                    server: dbName,
+                    version: badVersion,
+                    schema: schema
+                }).catch(function (err) {
+                    expect(err.oldVersion).toBe(undefined);
+                    expect(err.newVersion).toBe(undefined);
+                    expect(err.type).toBe('error');
                     takeDown(done);
                 });
             });
