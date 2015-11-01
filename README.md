@@ -1,4 +1,5 @@
-[![Build Status](https://travis-ci.org/aaronpowell/db.js.png?branch=master)](https://travis-ci.org/aaronpowell/db.js)[![Selenium Test Status](https://saucelabs.com/buildstatus/aaronpowell)](https://saucelabs.com/u/aaronpowell)
+[![Build Status](https://travis-ci.org/aaronpowell/db.js.png?branch=master)](https://travis-ci.org/aaronpowell/db.js)
+[![Selenium Test Status](https://saucelabs.com/buildstatus/aaronpowell)](https://saucelabs.com/u/aaronpowell)
 
 # db.js
 
@@ -106,6 +107,7 @@ used.
 ```
 
 #### Clearing
+
 This allows removing all items in a table/collection:
 
 ```js
@@ -317,9 +319,9 @@ The `map` method allows you to modify the object being returned:
 
 ### Atomic updates
 
-Any query that returns a range of results can also be set to modify the returned
-records automatically. This is done by adding `.modify()` at the end of the query
-(right before `.execute()`).
+Any query that returns a range of results can also be set to modify the
+returned records automatically. This is done by adding `.modify()` at
+the end of the query (right before `.execute()`).
 
 `modify` only runs updates on objects matched by the query, and still returns
 the same results to the `done()` function (however, the results will have the
@@ -429,21 +431,24 @@ library.
 
 # Contributor notes
 
-- `npm install` to install all the dependencies
+-   `npm install` to install all the dependencies
+-   `grunt jasmine-server` to run the jasmine server
+-   Open `http://localhost:9999/tests` to run the jasmine tests
 
-- `grunt jasmine-server` to run the jasmine server
-
-- Open `http://localhost:9999/tests` to run the jasmine tests
+# License
 
 The MIT License
 
 Copyright (c) 2012-2015 Aaron Powell, Brett Zamir
 
-# Todos
+# To-dos
 
-1. Incorporate [idb-schema](https://github.com/treojs/idb-schema)
-1. Add multiple-item transaction API, including abort() option
-1. Adapt more selectors from
-https://github.com/nolanlawson/pouchdb-find or other APIs
-from http://http://pouchdb.com/api.html or the like?
-1. Plug-in architecture to allow wrapping of db or server
+1.  Incorporate [idb-schema](https://github.com/treojs/idb-schema)
+
+1.  Add multiple-item transaction API, including abort() option
+
+1.  Adapt more selectors from
+<https://github.com/nolanlawson/pouchdb-find> or other APIs
+from <http://http://pouchdb.com/api.html> or the like?
+
+1.  Plug-in architecture to allow wrapping of db or server
