@@ -400,7 +400,19 @@ See the IndexedDB spec for the [possible exceptions](http://www.w3.org/TR/Indexe
 ## Deleting a database
 
 ```js
-  db.delete(dbName).then(function () {
+  db.delete(dbName).catch(function (err) {
+      // You might add this catch statement for
+      //   blocking errors in order to close
+      //   any pre-existing connections and resume
+      //   to the following "then" condition by
+      //   returning the "resume" promise
+      if (err.type === 'blocked') {
+          oldConnection.close();
+          return e.resume;
+      }
+      // Handler other errors here
+      throw e;
+  }).then(function () {
       // Should have been a successful database deletion
   }, function (err) {
       // Handler error or blocking problems
