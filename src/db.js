@@ -592,7 +592,7 @@ var module;
         version: '0.10.2',
         schema: function () {
             var schema = new Schema();
-            // Todo: Try adding (bound) to prototype of Schema instead
+            // Todo: Try adding (bound) to prototype of Schema instead (and also change db obj. to class)
             this.schemaInstance = schema;
             schema.open = this.open.bind(this);
             schema.delete = this.delete.bind(this);
