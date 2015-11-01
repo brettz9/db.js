@@ -4,7 +4,8 @@
     var key1, key2;
     describe('db.delete', function () {
         var dbName = 'tests',
-            indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
+            indexedDB = window.indexedDB || window.webkitIndexedDB ||
+            window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
 
         beforeEach(function (done) {
             var request = indexedDB.deleteDatabase(dbName);
@@ -12,7 +13,9 @@
             request.onsuccess = function () {
                 var req = indexedDB.open(dbName);
                 req.onupgradeneeded = function () {
-                    var objStore = req.result.createObjectStore('names', {autoIncrement: true});
+                    var objStore = req.result.createObjectStore(
+                        'names', {autoIncrement: true}
+                    );
                     var person1 = {name: 'Alex'};
                     var person2 = {name: 'Mia'};
 
@@ -46,24 +49,19 @@
                     e.target.transaction.abort();
                     done();
                 };
-                request.onerror = function (e) {
-                    done(e);
-                };
-                request.onblocked = function (e) {
-                    done(e);
-                };
-            }, function (err) {
-                done(err);
             });
         });
-        it('db.cmp should return 1, -1, or 0 as expected for key comparions', function (done) {
-            var cmp = db.cmp(key1, key2);
-            expect(cmp).toEqual(-1);
-            cmp = db.cmp(key2, key2);
-            expect(cmp).toEqual(0);
-            cmp = db.cmp(key2, key1);
-            expect(cmp).toEqual(1);
-            done();
-        });
+        it('db.cmp should return 1, -1, or 0 as expected for key comparions',
+            function (done) {
+                var cmp = db.cmp(key1, key2);
+                expect(cmp).toEqual(-1);
+                cmp = db.cmp(key2, key2);
+                expect(cmp).toEqual(0);
+                cmp = db.cmp(key2, key1);
+                expect(cmp).toEqual(1);
+                done();
+            }
+        );
     });
-}(window.db, window.describe, window.it, window.expect, window.beforeEach, window.afterEach));
+}(window.db, window.describe, window.it, window.expect,
+  window.beforeEach, window.afterEach));
