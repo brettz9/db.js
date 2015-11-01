@@ -52,8 +52,6 @@ different database within your application:
         throw e;
     }).then(function (s) {
         server = s;
-    }, function (err) {
-        // Handle error or blocking problems
     });
 ```
 
@@ -414,8 +412,6 @@ See the IndexedDB spec for the [possible exceptions](http://www.w3.org/TR/Indexe
       throw e;
   }).then(function () {
       // Should have been a successful database deletion
-  }, function (err) {
-      // Handler error or blocking problems
   });
 ```
 
