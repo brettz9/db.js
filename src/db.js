@@ -646,6 +646,18 @@ var module;
                     reject(err);
                 };
                 request.onblocked = function (err) {
+                    var resume = new Promise(function (res, rej) {
+                        // We overwrite rather than make a new open() since the original
+                        //   request is still open and its onsuccess will still fire
+                        //   if the user unblocks by closing the blocking connection
+                        request.onsuccess = function (e) {
+                            res(e);
+                        };
+                        request.onerror = function (er) {
+                            rej(er);
+                        };
+                    });
+                    err.resume = resume;
                     reject(err);
                 };
             });
