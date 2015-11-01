@@ -1,4 +1,4 @@
-/*global window, console, document, alert */
+/*global window, console */
 /*jslint vars:true*/
 /*eslint no-magic-numbers: 0, no-alert: 0*/
 /* jscs:disable maximumLineLength */
@@ -20,7 +20,7 @@
                 indexes: {
                     firstName: {},
                     age: {},
-                    specialID: {}
+                    specialID: {unique: true}
                 }
             }
         };
@@ -31,23 +31,23 @@
             indexedDB.deleteDatabase(dbName); // Ensure we delete if there is a problem
             var spec = {};
             function takeDown (finishedCb) {
-                if (spec.server && !spec.server.closed) {document.body.innerHTML += 'still-not-closed\n';
+                if (spec.server && !spec.server.closed) {
                     spec.server.close();
                 }
 
                 var req = indexedDB.deleteDatabase(dbName);
 
-                req.onsuccess = function () {document.body.innerHTML += 'afterEach-success\n';
+                req.onsuccess = function () {
                     finishedCb();
                 };
 
-                req.onerror = function () {document.body.innerHTML += 'afterEach-error\n';
+                req.onerror = function () {
                     console.log('failed to delete db in afterEach',
                                   arguments, spec);
                     finishedCb('error');
                 };
 
-                req.onblocked = function () {document.body.innerHTML += 'afterEach-blocked\n';
+                req.onblocked = function () {
                     console.log('db blocked', arguments);
                     finishedCb('blocked1');
                 };
@@ -57,7 +57,7 @@
             }
 
             var req = indexedDB.deleteDatabase(dbName);
-            req.onsuccess = function () {document.body.innerHTML += 'beforeEach-success\n';
+            req.onsuccess = function () {
                 db.open({
                     server: dbName,
                     version: initialVersion,
@@ -82,18 +82,18 @@
                         specialID: 5
                     };
                     spec.server.add('test', spec.item1,
-                        spec.item2, spec.item3).then(function () {document.body.innerHTML += 'beforeEach-done\n';
+                        spec.item2, spec.item3).then(function () {
                             cb(spec, takeDown);
                         }
                     );
                 });
             };
 
-            req.onerror = function () {document.body.innerHTML += 'beforeEach-error\n';
+            req.onerror = function () {
                 console.log('failed to delete db in beforeEach', arguments);
             };
 
-            req.onblocked = function () {document.body.innerHTML += 'beforeEach-blocked\n';
+            req.onblocked = function () {
                 console.log('db blocked', arguments, spec);
             };
         }
@@ -113,7 +113,7 @@
             setUp(function (spec, takeDown) {
                 var newVersion = 10;
 
-                spec.server.test.onversionchange(function (vce) {document.body.innerHTML += 'versionchange\n';
+                spec.server.test.onversionchange(function (vce) {
                     expect(vce.newVersion).toEqual(newVersion);
                     spec.server.close(); // Will otherwise cause a blocked event
                 });
@@ -121,7 +121,7 @@
                     server: dbName,
                     version: newVersion,
                     schema: schema
-                }).then(function (dbr) {document.body.innerHTML += 'then-good\n';
+                }).then(function (dbr) {
                     if (!dbr.closed) {
                         dbr.close();
                     }
@@ -143,7 +143,7 @@
                     expect(e.oldVersion).toEqual(initialVersion);
                     expect(e.newVersion).toEqual(newVersion);
                     expect(e.type).toEqual('blocked');
-                    if (!spec.server.closed) {document.body.innerHTML += 'not-closed\n';
+                    if (!spec.server.closed) {
                         spec.server.close();
                         return e.resume;
                     }
@@ -160,7 +160,7 @@
                 db.delete(dbName).then(null, function (err) {
                     expect(err.oldVersion).toEqual(initialVersion);
                     expect(err.newVersion).toEqual(null);
-                    if (!spec.server.closed) {document.body.innerHTML += 'not-closed\n';
+                    if (!spec.server.closed) {
                         spec.server.close();
                     }
                     takeDown(done);
@@ -168,9 +168,8 @@
             });
         });
 
-        it('should receive onerror events', function (done) {
+        it('should receive IDBDatabase onerror events', function (done) {
             setUp(function (spec, takeDown) {
-                spec.server.close();
                 var badVersion = 1;
                 db.open({
                     server: dbName,
@@ -185,27 +184,25 @@
             });
         });
 
-        return;
-        // Can't seem to get these to be handled or recover
-        it('should receive onerror events', function (done) {
+        it('should receive IDBRequest onerror events', function (done) {
             setUp(function (spec, takeDown) {
-                var badVersion = 0;
-
-                spec.server.test.onerror(function (vce) {document.body.innerHTML += '1onerror\n';
-                    expect(vce.newVersion).toEqual(badVersion);
-                    spec.server.close(); // Will otherwise cause a blocked event
+                spec.server.test.onerror(function (vce) {
+                    expect(vce.type).toBe('error');
                     takeDown(done);
                 });
-                var tx = spec.server.db.transaction('test');
-                tx.oncomplete = function () {
-                    // alert('working here');
+
+                // Todo: Test error handlers of equivalent db.js methods
+
+                var tx = spec.server.db.transaction('test', 'readwrite');
+                tx.onerror = function (err) {
+                    expect(err.type).toBe('error');
                 };
-                tx.onerror = function () {
-                    alert('error here');
+                var store = tx.objectStore('test');
+                var request = store.add({specialID: 5});
+                request.onerror = function (err) {
+                    expect(err.type).toBe('error');
                 };
             });
         });
-        // jscs:disable requireCapitalizedComments
-        // jasmine.DEFAULT_TIMEOUT_INTERVAL = 15000;
     });
 }(window.db, window.describe, window.it, window.expect));
