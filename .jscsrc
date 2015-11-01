@@ -94,7 +94,7 @@
   "requireArrowFunctions": false,
   "requireBlocksOnNewline": false,
   "requireCamelCaseOrUpperCaseIdentifiers": true,
-  "requireCapitalizedComments": true,
+  "requireCapitalizedComments": {"allExcept": ["global", "globals", "jslint", "jshint", "exported", "eslint", "eslint-disable", "eslint-enable", "eslint-env", "jscs", "e", ","]},
   "requireCapitalizedConstructors": true,
   "requireCommaBeforeLineBreak": true,
   "requireCurlyBraces": ["if", "else", "for", "while", "do", "try", "catch"],
