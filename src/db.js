@@ -623,7 +623,7 @@ if (module !== undefined) {
                         result: cached[version]
                     }
                 }, server, version, noServerMethods).
-                then(resolve, reject);
+                    then(resolve, reject);
             } else {
                 request = getIndexedDB().open(server, version);
 
