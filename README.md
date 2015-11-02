@@ -6,6 +6,15 @@
 db.js is a wrapper for [IndexedDB](http://www.w3.org/TR/IndexedDB/) to
 make it easier to work against, making it look more like a queryable API.
 
+Its approach is to allow, as much as possible, the full expression of
+the underlying low-level API but in a more friendly, Promise-based manner.
+
+It is also hoped that by relying upon the standard web API, that as more
+server-side database adapters come into existence to adhere to this
+standard, one will be able to write once and use everywhere. By using
+the IndexedDB API, one is thus not tied to specific server-side database
+implementations.
+
 # Usage
 
 Add a reference to db.js in your application before you want to use IndexedDB:
@@ -15,7 +24,7 @@ Add a reference to db.js in your application before you want to use IndexedDB:
 ```
 
 Alternatively, db.js includes an optional `define` call, and can be loaded
-as module using the [AMD](https://github.com/amdjs/amdjs-api/wiki/AMD)
+as a module using the [AMD](https://github.com/amdjs/amdjs-api/wiki/AMD)
 loader of your choice.
 
 ## Opening/Creating a database and connection
@@ -25,6 +34,7 @@ different database within your application:
 
 ```js
     var server;
+    var db = new DbJs();
     db.open({
         server: 'my-app',
         version: 1,
@@ -398,6 +408,7 @@ See the IndexedDB spec for the [possible exceptions](http://www.w3.org/TR/Indexe
 ## Deleting a database
 
 ```js
+  var db = new DbJs();
   db.delete(dbName).catch(function (err) {
       // You might add this catch statement for
       //   blocking errors in order to close
@@ -421,6 +432,7 @@ Returns 1 if the first key is greater than the second, -1 if the first
 is less than the second, and 0 if the first is equal to the second.
 
 ```js
+  var db = new DbJs();
   db.cmp(key1, key2);
 ```
 
