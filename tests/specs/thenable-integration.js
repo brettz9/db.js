@@ -5,7 +5,8 @@
 
     describe('thenable library promise integration', function () {
         var dbName = 'tests',
-            indexedDB = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
+            indexedDB = window.indexedDB || window.webkitIndexedDB ||
+            window.mozIndexedDB || window.oIndexedDB || window.msIndexedDB;
 
         beforeEach(function (done) {
             var spec = this;
@@ -95,4 +96,4 @@
               });
         });
     });
-}(window.db, window.describe, window.it, window.expect, window.beforeEach, window.afterEach, window.jQuery));
+}(new window.DbJs(), window.describe, window.it, window.expect, window.beforeEach, window.afterEach, window.jQuery));

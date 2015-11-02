@@ -26,8 +26,8 @@
                                 autoIncrement: true
                             },
                             indexes: {
-                                firstName: { },
-                                age: { },
+                                firstName: {},
+                                age: {},
                                 specialID: {}
                             }
                         }
@@ -607,7 +607,6 @@
                         done();
                     });
             });
-
         });
 
         describe('query mapping', function () {
@@ -711,8 +710,8 @@
                                 autoIncrement: true
                             },
                             indexes: {
-                                firstName: { },
-                                age: { },
+                                firstName: {},
+                                age: {},
                                 tags: {
                                     multiEntry: true
                                 }
@@ -807,4 +806,4 @@
                 });
         });
     });
-}(window.db, window.describe, window.it, window.expect, window.beforeEach, window.afterEach));
+}(new window.DbJs(), window.describe, window.it, window.expect, window.beforeEach, window.afterEach));

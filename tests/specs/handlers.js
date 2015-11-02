@@ -205,4 +205,4 @@
             });
         });
     });
-}(window.db, window.describe, window.it, window.expect));
+}(new window.DbJs(), window.describe, window.it, window.expect));

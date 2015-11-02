@@ -283,5 +283,4 @@
                 });
         });
     });
-
-}(window.db, window.describe, window.it, window.expect, window.beforeEach, window.afterEach));
+}(new window.DbJs(), window.describe, window.it, window.expect, window.beforeEach, window.afterEach));

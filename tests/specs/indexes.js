@@ -61,8 +61,8 @@
                             autoIncrement: true
                         },
                         indexes: {
-                            firstName: { },
-                            age: { }
+                            firstName: {},
+                            age: {}
                         }
                     }
                 }
@@ -115,8 +115,8 @@
                                 autoIncrement: true
                             },
                             indexes: {
-                                firstName: { },
-                                age: { }
+                                firstName: {},
+                                age: {}
                             }
                         }
                     }
@@ -173,8 +173,8 @@
                                 autoIncrement: true
                             },
                             indexes: {
-                                firstName: { },
-                                age: { }
+                                firstName: {},
+                                age: {}
                             }
                         }
                     }
@@ -202,4 +202,4 @@
             });
         });
     });
-}(window.db, window.describe, window.it, window.expect, window.beforeEach, window.afterEach));
+}(new window.DbJs(), window.describe, window.it, window.expect, window.beforeEach, window.afterEach));

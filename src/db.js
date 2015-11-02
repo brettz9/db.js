@@ -1,8 +1,12 @@
 /*global Promise, define, require, window */
 /*eslint no-loop-func: 0, no-unused-vars: 0, guard-for-in: 0*/
-var Schema = require('idb-schema');
-
 var module;
+
+var Schema;
+if (module !== undefined) {
+    Schema = require('idb-schema');
+}
+
 (function (window) {
     'use strict';
 
@@ -588,76 +592,48 @@ var module;
         return Promise.resolve(s);
     }
 
-    var db = {
-        version: '0.10.2',
-        schema: function () {
-            var schema = new Schema();
-            // Todo: Try adding (bound) to prototype of Schema instead (and also change db obj. to class)
-            this.schemaInstance = schema;
-            schema.open = this.open.bind(this);
-            schema.delete = this.delete.bind(this);
-            schema.cmp = this.cmp.bind(this);
-            return schema;
-        },
-        open: function (options) {
-            var request;
+    function DbJs () {
+        this.version = '0.10.2';
+    }
 
-            return new Promise(function (resolve, reject) {
-                var schema = options.schema;
-                var server = options.server;
-                var cached = dbCache[server];
-                var schemaInstance = this.schemaInstance;
-                var version = schemaInstance ? schemaInstance.version() : options.version;
-                var noServerMethods = options.noServerMethods;
+    DbJs.prototype.schema = function () {
+        var schema = new Schema();
+        // Todo: Try adding (bound) to prototype of Schema instead (and also change db obj. to class)
+        this.schemaInstance = schema;
+        schema.open = this.open.bind(this);
+        schema.delete = this.delete.bind(this);
+        schema.cmp = this.cmp.bind(this);
+        return schema;
+    };
+    DbJs.prototype.open = function (options) {
+        var request;
+        var that = this;
 
-                if (cached && cached[version]) {
-                    open({
-                        target: {
-                            result: cached[version]
-                        }
-                    }, server, version, noServerMethods).
-                    then(resolve, reject);
-                } else {
-                    request = getIndexedDB().open(server, version);
+        return new Promise(function (resolve, reject) {
+            var schema = options.schema;
+            var server = options.server;
+            var cached = dbCache[server];
+            var schemaInstance = that.schemaInstance;
+            var version = schemaInstance ? schemaInstance.version() : options.version;
+            var noServerMethods = options.noServerMethods;
 
-                    request.onsuccess = function (e) {
-                        open(e, server, version, noServerMethods).
-                            then(resolve, reject);
-                    };
+            if (cached && cached[version]) {
+                open({
+                    target: {
+                        result: cached[version]
+                    }
+                }, server, version, noServerMethods).
+                then(resolve, reject);
+            } else {
+                request = getIndexedDB().open(server, version);
 
-                    request.onupgradeneeded = schemaInstance ? schemaInstance.callback() : function (e) {
-                        createSchema(e, schema, e.target.result);
-                    };
-                    request.onerror = function (err) {
-                        reject(err);
-                    };
-                    request.onblocked = function (err) {
-                        var resume = new Promise(function (res, rej) {
-                            // We overwrite rather than make a new open() since the original
-                            //   request is still open and its onsuccess will still fire
-                            //   if the user unblocks by closing the blocking connection
-                            request.onsuccess = function (e) {
-                                open(e, server, version, noServerMethods).
-                                    then(res, rej);
-                            };
-                            request.onerror = function (er) {
-                                rej(er);
-                            };
-                        });
-                        err.resume = resume;
-                        reject(err);
-                    };
-                }
-            });
-        },
-        delete: function (dbName) {
-            var request;
+                request.onsuccess = function (e) {
+                    open(e, server, version, noServerMethods).
+                        then(resolve, reject);
+                };
 
-            return new Promise(function (resolve, reject) {
-                request = getIndexedDB().deleteDatabase(dbName);
-
-                request.onsuccess = function (ev) {
-                    resolve(ev);
+                request.onupgradeneeded = schemaInstance ? schemaInstance.callback() : function (e) {
+                    createSchema(e, schema, e.target.result);
                 };
                 request.onerror = function (err) {
                     reject(err);
@@ -668,7 +644,8 @@ var module;
                         //   request is still open and its onsuccess will still fire
                         //   if the user unblocks by closing the blocking connection
                         request.onsuccess = function (e) {
-                            res(e);
+                            open(e, server, version, noServerMethods).
+                                then(res, rej);
                         };
                         request.onerror = function (er) {
                             rej(er);
@@ -677,18 +654,47 @@ var module;
                     err.resume = resume;
                     reject(err);
                 };
-            });
-        },
-        cmp: function (param1, param2) {
-            return getIndexedDB().cmp(param1, param2);
-        }
+            }
+        });
+    };
+    DbJs.prototype.delete = function (dbName) {
+        var request;
+
+        return new Promise(function (resolve, reject) {
+            request = getIndexedDB().deleteDatabase(dbName);
+
+            request.onsuccess = function (ev) {
+                resolve(ev);
+            };
+            request.onerror = function (err) {
+                reject(err);
+            };
+            request.onblocked = function (err) {
+                var resume = new Promise(function (res, rej) {
+                    // We overwrite rather than make a new open() since the original
+                    //   request is still open and its onsuccess will still fire
+                    //   if the user unblocks by closing the blocking connection
+                    request.onsuccess = function (e) {
+                        res(e);
+                    };
+                    request.onerror = function (er) {
+                        rej(er);
+                    };
+                });
+                err.resume = resume;
+                reject(err);
+            };
+        });
+    };
+    DbJs.prototype.cmp = function (param1, param2) {
+        return getIndexedDB().cmp(param1, param2);
     };
 
     if (module !== undefined && module.exports !== undefined) {
-        module.exports = db;
+        module.exports = DbJs;
     } else if (typeof define === 'function' && define.amd) {
-        define(function () {return db;});
+        define(function () {return DbJs;});
     } else {
-        window.db = db;
+        window.DbJs = DbJs;
     }
 }(window));
