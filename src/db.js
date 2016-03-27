@@ -179,17 +179,6 @@
                 return runQuery(type, args, cursorType, unique ? direction + 'unique' : direction, limitRange, filters, mapper);
             };
 
-            const limit = function (...args) {
-                limitRange = args.slice(0, 2);
-                error = limitRange.some(val => typeof val !== 'number') ? new Error('limit() arguments must be numeric') : error;
-                if (limitRange.length === 1) {
-                    limitRange.unshift(0);
-                }
-
-                return {
-                    execute
-                };
-            };
             const count = function () {
                 direction = null;
                 cursorType = 'count';
@@ -204,82 +193,107 @@
 
                 return {
                     desc,
+                    distinct,
                     execute,
                     filter,
-                    distinct,
-                    map
-                };
-            };
-            const filter = function (...args) {
-                filters.push(args.slice(0, 2));
-
-                return {
-                    keys,
-                    execute,
-                    filter,
-                    desc,
-                    distinct,
-                    modify,
                     limit,
                     map
                 };
             };
+
+            const limit = function (...args) {
+                limitRange = args.slice(0, 2);
+                error = limitRange.some(val => typeof val !== 'number') ? new Error('limit() arguments must be numeric') : error;
+                if (limitRange.length === 1) {
+                    limitRange.unshift(0);
+                }
+
+                return {
+                    desc,
+                    distinct,
+                    filter,
+                    keys,
+                    execute,
+                    map,
+                    modify
+                };
+            };
+
+            const filter = function (...args) {
+                filters.push(args.slice(0, 2));
+
+                return {
+                    desc,
+                    distinct,
+                    execute,
+                    filter,
+                    keys,
+                    limit,
+                    map,
+                    modify
+                };
+            };
+
             const desc = function () {
                 direction = 'prev';
 
                 return {
-                    keys,
+                    distinct,
                     execute,
                     filter,
-                    distinct,
-                    modify,
-                    map
+                    keys,
+                    limit,
+                    map,
+                    modify
                 };
             };
+
             const distinct = function () {
                 unique = true;
                 return {
-                    keys,
                     count,
+                    desc,
                     execute,
                     filter,
-                    desc,
-                    modify,
-                    map
+                    keys,
+                    limit,
+                    map,
+                    modify
                 };
             };
+
             const modify = function (update) {
                 modifyObj = update && typeof update === 'object' ? update : null;
                 return {
                     execute
                 };
             };
+
             const map = function (fn) {
                 mapper = fn;
 
                 return {
-                    execute,
                     count,
-                    keys,
-                    filter,
                     desc,
                     distinct,
-                    modify,
+                    execute,
+                    filter,
+                    keys,
                     limit,
-                    map
+                    modify
                 };
             };
 
             return {
-                execute,
                 count,
-                keys,
-                filter,
                 desc,
                 distinct,
-                modify,
+                execute,
+                filter,
+                keys,
                 limit,
-                map
+                map,
+                modify
             };
         };
 

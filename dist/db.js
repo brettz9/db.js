@@ -220,23 +220,6 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 return runQuery(type, args, cursorType, unique ? direction + 'unique' : direction, limitRange, filters, mapper);
             };
 
-            var limit = function limit() {
-                for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
-                    args[_key] = arguments[_key];
-                }
-
-                limitRange = args.slice(0, 2);
-                error = limitRange.some(function (val) {
-                    return typeof val !== 'number';
-                }) ? new Error('limit() arguments must be numeric') : error;
-                if (limitRange.length === 1) {
-                    limitRange.unshift(0);
-                }
-
-                return {
-                    execute: execute
-                };
-            };
             var count = function count() {
                 direction = null;
                 cursorType = 'count';
@@ -251,12 +234,38 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 
                 return {
                     desc: desc,
+                    distinct: distinct,
                     execute: execute,
                     filter: filter,
-                    distinct: distinct,
+                    limit: limit,
                     map: map
                 };
             };
+
+            var limit = function limit() {
+                for (var _len = arguments.length, args = Array(_len), _key = 0; _key < _len; _key++) {
+                    args[_key] = arguments[_key];
+                }
+
+                limitRange = args.slice(0, 2);
+                error = limitRange.some(function (val) {
+                    return typeof val !== 'number';
+                }) ? new Error('limit() arguments must be numeric') : error;
+                if (limitRange.length === 1) {
+                    limitRange.unshift(0);
+                }
+
+                return {
+                    desc: desc,
+                    distinct: distinct,
+                    filter: filter,
+                    keys: keys,
+                    execute: execute,
+                    map: map,
+                    modify: modify
+                };
+            };
+
             var filter = function filter() {
                 for (var _len2 = arguments.length, args = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
                     args[_key2] = arguments[_key2];
@@ -265,72 +274,77 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 filters.push(args.slice(0, 2));
 
                 return {
-                    keys: keys,
-                    execute: execute,
-                    filter: filter,
                     desc: desc,
                     distinct: distinct,
-                    modify: modify,
+                    execute: execute,
+                    filter: filter,
+                    keys: keys,
                     limit: limit,
-                    map: map
+                    map: map,
+                    modify: modify
                 };
             };
+
             var desc = function desc() {
                 direction = 'prev';
 
                 return {
-                    keys: keys,
+                    distinct: distinct,
                     execute: execute,
                     filter: filter,
-                    distinct: distinct,
-                    modify: modify,
-                    map: map
+                    keys: keys,
+                    limit: limit,
+                    map: map,
+                    modify: modify
                 };
             };
+
             var distinct = function distinct() {
                 unique = true;
                 return {
-                    keys: keys,
                     count: count,
+                    desc: desc,
                     execute: execute,
                     filter: filter,
-                    desc: desc,
-                    modify: modify,
-                    map: map
+                    keys: keys,
+                    limit: limit,
+                    map: map,
+                    modify: modify
                 };
             };
+
             var modify = function modify(update) {
                 modifyObj = update && (typeof update === 'undefined' ? 'undefined' : _typeof(update)) === 'object' ? update : null;
                 return {
                     execute: execute
                 };
             };
+
             var map = function map(fn) {
                 mapper = fn;
 
                 return {
-                    execute: execute,
                     count: count,
-                    keys: keys,
-                    filter: filter,
                     desc: desc,
                     distinct: distinct,
-                    modify: modify,
+                    execute: execute,
+                    filter: filter,
+                    keys: keys,
                     limit: limit,
-                    map: map
+                    modify: modify
                 };
             };
 
             return {
-                execute: execute,
                 count: count,
-                keys: keys,
-                filter: filter,
                 desc: desc,
                 distinct: distinct,
-                modify: modify,
+                execute: execute,
+                filter: filter,
+                keys: keys,
                 limit: limit,
-                map: map
+                map: map,
+                modify: modify
             };
         };
 
