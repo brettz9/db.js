@@ -633,9 +633,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                     reject(new Error('Database has been closed'));
                     return;
                 }
-                db.close();
                 closed = true;
                 delete dbCache[name][version];
+                db.close();
                 resolve();
             });
         };
@@ -940,6 +940,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                                 try {
                                     (function () {
                                         var s = _open(e, server, version, noServerMethods, e.target.transaction);
+                                        delete s.close; // Closing should not be done in `upgradeneeded`
                                         e.dbjs = function (cb) {
                                             // returning a Promise here led to problems with Firefox which
                                             //    would lose the upgrade transaction by the time the user

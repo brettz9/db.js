@@ -99,7 +99,9 @@ Note that the event object which is passed to `addCallback` is the underlying
 IndexedDB event, but it is enhanced with a `dbjs` method that can be supplied
 a callback which will be passed the db.js `Server` object to allow db.js-style
 queries during the `upgradeneeded` event as desired (e.g.,
-`e.dbjs(function (server) {server.query(table).all().modify(...)});`).
+`e.dbjs(function (server) {server.query(table).all().modify(...)});`) with the
+exception that `close` is disallowed as this should not occur within the
+`upgradeneeded` event.
 
 A connection is intended to be persisted, and you can perform multiple
 operations while it's kept open.
