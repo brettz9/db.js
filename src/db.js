@@ -518,6 +518,10 @@ import IdbSchema from 'idb-schema';
             return this.remove(...args);
         };
 
+        this.del = function (...args) {
+            return this.remove(...args);
+        };
+
         this.clear = function (table) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
