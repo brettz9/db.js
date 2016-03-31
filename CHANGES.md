@@ -1,5 +1,17 @@
 # CHANGES
 
+## Schema version (unreleased)
+
+- API addition: Support a `schemaBuilder` callback which accepts an
+    [idb-schema](http://github.com/treojs/idb-schema) object for incremental,
+    versioned schema building and whose `addCallback` method will be
+    passed an enhanced `upgradeneeded` event object with a `dbjs` method
+    that will be passed a `Server` object for making db.js-style queries
+    (e.g., to modify store content).
+- Documentation: Update `version` to take `schemaBuilder` into account
+    (and document `schemaBuilder`).
+- Fix: Add Promise rejection for `update()`.
+
 ## Unreleased
 
 - Breaking change: Change `db.cmp()` to return a `Promise` to deliver
