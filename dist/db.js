@@ -9,6 +9,10 @@ var _idbSchema = require('idb-schema');
 
 var _idbSchema2 = _interopRequireDefault(_idbSchema);
 
+var _syncPromise = require('sync-promise');
+
+var _syncPromise2 = _interopRequireDefault(_syncPromise);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
@@ -96,7 +100,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         var modifyObj = null;
 
         var runQuery = function runQuery(type, args, cursorType, direction, limitRange, filters, mapper) {
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 var keyRange = void 0;
                 try {
                     keyRange = type ? IDBKeyRange[type].apply(IDBKeyRange, _toConsumableArray(args)) : null;
@@ -121,7 +125,6 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 transaction.oncomplete = function () {
                     return resolve(results);
                 };
-
                 var store = transaction.objectStore(table); // if bad, db.transaction will reject first
                 var index = typeof indexName === 'string' ? store.index(indexName) : store;
 
@@ -222,7 +225,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 
             var execute = function execute() {
                 if (error) {
-                    return Promise.reject(error);
+                    return new _syncPromise2.default(function (resolve, reject) {
+                        reject(error);
+                    });
                 }
                 return runQuery(type, args, cursorType, unique ? direction + 'unique' : direction, limitRange, filters, mapper);
             };
@@ -404,7 +409,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 args[_key3 - 1] = arguments[_key3];
             }
 
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -483,7 +488,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 args[_key4 - 1] = arguments[_key4];
             }
 
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -562,7 +567,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         };
 
         this.remove = function (table, key) {
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -602,7 +607,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         };
 
         this.clear = function (table) {
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -624,7 +629,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         };
 
         this.close = function () {
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -637,7 +642,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         };
 
         this.get = function (table, key) {
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -675,7 +680,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         };
 
         this.count = function (table, key) {
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -846,8 +851,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         var db = e.target.result;
         dbCache[server][version] = db;
 
-        var s = new Server(db, server, version, noServerMethods, upgradeTransaction);
-        return s instanceof Error ? Promise.reject(s) : Promise.resolve(s);
+        return new Server(db, server, version, noServerMethods, upgradeTransaction);
     };
 
     var db = {
@@ -861,13 +865,18 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
             if (!dbCache[server]) {
                 dbCache[server] = {};
             }
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 if (dbCache[server][version]) {
-                    _open({
+                    var s = _open({
                         target: {
                             result: dbCache[server][version]
                         }
-                    }, server, version, noServerMethods).then(resolve, reject);
+                    }, server, version, noServerMethods);
+                    if (s instanceof Error) {
+                        reject(s);
+                        return;
+                    }
+                    resolve(s);
                 } else {
                     var _ret2 = function () {
                         var idbschema = void 0;
@@ -902,7 +911,12 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                         var request = indexedDB.open(server, version);
 
                         request.onsuccess = function (e) {
-                            return _open(e, server, version, noServerMethods).then(resolve, reject);
+                            var s = _open(e, server, version, noServerMethods);
+                            if (s instanceof Error) {
+                                reject(s);
+                                return;
+                            }
+                            resolve(s);
                         };
                         request.onerror = function (e) {
                             // Prevent default for `BadVersion` and `AbortError` errors, etc.
@@ -916,8 +930,20 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                             var err = void 0;
                             if (idbschema) {
                                 try {
-                                    e.db = _open(e, server, version, noServerMethods, e.target.transaction);
-                                    idbschema.callback()(e);
+                                    (function () {
+                                        var s = _open(e, server, version, noServerMethods, e.target.transaction);
+                                        e.db = function (cb) {
+                                            // returning a Promise here led to problems with Firefox which
+                                            //    would lose the upgrade transaction by the time the user
+                                            //    callback sought to use the Server in a (modify) query
+                                            if (s instanceof Error) {
+                                                reject(s);
+                                                return;
+                                            }
+                                            cb(s);
+                                        };
+                                        idbschema.callback()(e);
+                                    })();
                                 } catch (idbError) {
                                     reject(idbError);
                                 }
@@ -929,14 +955,19 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                             }
                         };
                         request.onblocked = function (e) {
-                            var resume = new Promise(function (res, rej) {
+                            var resume = new _syncPromise2.default(function (res, rej) {
                                 // We overwrite handlers rather than make a new
                                 //   open() since the original request is still
                                 //   open and its onsuccess will still fire if
                                 //   the user unblocks by closing the blocking
                                 //   connection
                                 request.onsuccess = function (ev) {
-                                    _open(ev, server, version, noServerMethods).then(res, rej);
+                                    var s = _open(ev, server, version, noServerMethods);
+                                    if (s instanceof Error) {
+                                        reject(s);
+                                        return;
+                                    }
+                                    s.then(res);
                                 };
                                 request.onerror = function (e) {
                                     return rej(e);
@@ -953,7 +984,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         },
 
         delete: function _delete(dbName) {
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 var request = indexedDB.deleteDatabase(dbName); // Does not throw
 
                 request.onsuccess = function (e) {
@@ -967,7 +998,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                     e = e.newVersion === null || typeof Proxy === 'undefined' ? e : new Proxy(e, { get: function get(target, name) {
                             return name === 'newVersion' ? null : target[name];
                         } });
-                    var resume = new Promise(function (res, rej) {
+                    var resume = new _syncPromise2.default(function (res, rej) {
                         // We overwrite handlers rather than make a new
                         //   delete() since the original request is still
                         //   open and its onsuccess will still fire if
@@ -996,7 +1027,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         },
 
         cmp: function cmp(param1, param2) {
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 try {
                     resolve(indexedDB.cmp(param1, param2));
                 } catch (e) {
@@ -1018,7 +1049,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 })(self);
 
 
-},{"idb-schema":2}],2:[function(require,module,exports){
+},{"idb-schema":2,"sync-promise":8}],2:[function(require,module,exports){
 'use strict';
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
@@ -1387,6 +1418,122 @@ module.exports = function (obj) {
 
 	return ret;
 };
+
+},{}],8:[function(require,module,exports){
+function isPromise(p) {
+  return p && typeof p.then === 'function';
+}
+
+// States
+var PENDING = 2,
+    FULFILLED = 0, // We later abuse these as array indices
+    REJECTED = 1;
+
+function SyncPromise(fn) {
+  var self = this;
+  self.v = 0; // Value, this will be set to either a resolved value or rejected reason
+  self.s = PENDING; // State of the promise
+  self.c = [[],[]]; // Callbacks c[0] is fulfillment and c[1] is rejection callbacks
+  self.a = false; // Has the promise been resolved synchronously
+  var syncResolved = true;
+  function transist(val, state) {
+    self.a = syncResolved;
+    self.v = val;
+    self.s = state;
+    if (state === REJECTED && !self.c[state].length) {
+      throw val;
+    }
+    self.c[state].forEach(function(fn) { fn(val); });
+    self.c = null; // Release memory.
+  }
+  function resolve(val) {
+    if (!self.c) {
+      // Already resolved, do nothing.
+    } else if (isPromise(val)) {
+      val.then(resolve).catch(reject);
+    } else {
+      transist(val, FULFILLED);
+    }
+  }
+  function reject(reason) {
+    if (!self.c) {
+      // Already resolved, do nothing.
+    } else if (isPromise(reason)) {
+      reason.then(reject).catch(reject);
+    } else {
+      transist(reason, REJECTED);
+    }
+  }
+  fn(resolve, reject);
+  syncResolved = false;
+}
+
+var prot = SyncPromise.prototype;
+
+prot.then = function(cb) {
+  var self = this;
+  if (self.a) { // Promise has been resolved synchronously
+    throw new Error('Can not call then on synchonously resolved promise');
+  }
+  return new SyncPromise(function(resolve, reject) {
+    function settle() {
+      try {
+        resolve(cb(self.v));
+      } catch(e) {
+        reject(e);
+      }
+    }
+    if (self.s === FULFILLED) {
+      settle();
+    } else if (self.s === REJECTED) {
+      reject(self.v);
+    } else {
+      self.c[FULFILLED].push(settle);
+      self.c[REJECTED].push(reject);
+    }
+  });
+};
+
+prot.catch = function(cb) {
+  var self = this;
+  if (self.a) { // Promise has been resolved synchronously
+    throw new Error('Can not call catch on synchonously resolved promise');
+  }
+  return new SyncPromise(function(resolve, reject) {
+    function settle() {
+      try {
+        resolve(cb(self.v));
+      } catch(e) {
+        reject(e);
+      }
+    }
+    if (self.s === REJECTED) {
+      settle();
+    } else if (self.s === FULFILLED) {
+      resolve(self.v);
+    } else {
+      self.c[REJECTED].push(settle);
+      self.c[FULFILLED].push(resolve);
+    }
+  });
+};
+
+SyncPromise.all = function(promises) {
+  return new SyncPromise(function(resolve, reject, l) {
+    l = promises.length;
+    promises.forEach(function(p, i) {
+      if (isPromise(p)) {
+        p.then(function(res) {
+          promises[i] = res;
+          --l || resolve(promises);
+        }).catch(reject);
+      } else {
+        --l || resolve(promises);
+      }
+    });
+  });
+};
+module.exports = SyncPromise;
 
 },{}]},{},[1])(1)
 });

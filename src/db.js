@@ -1,4 +1,5 @@
 import IdbSchema from 'idb-schema';
+import SyncPromise from 'sync-promise';
 
 (function (local) {
     'use strict';
@@ -71,7 +72,7 @@ import IdbSchema from 'idb-schema';
         let modifyObj = null;
 
         const runQuery = function (type, args, cursorType, direction, limitRange, filters, mapper) {
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 let keyRange;
                 try {
                     keyRange = type ? IDBKeyRange[type](...args) : null;
@@ -90,7 +91,6 @@ import IdbSchema from 'idb-schema';
                 transaction.onerror = e => reject(e);
                 transaction.onabort = e => reject(e);
                 transaction.oncomplete = () => resolve(results);
-
                 const store = transaction.objectStore(table); // if bad, db.transaction will reject first
                 const index = typeof indexName === 'string' ? store.index(indexName) : store;
 
@@ -177,7 +177,9 @@ import IdbSchema from 'idb-schema';
 
             const execute = function () {
                 if (error) {
-                    return Promise.reject(error);
+                    return new SyncPromise(function (resolve, reject) {
+                        reject(error);
+                    });
                 }
                 return runQuery(type, args, cursorType, unique ? direction + 'unique' : direction, limitRange, filters, mapper);
             };
@@ -339,7 +341,7 @@ import IdbSchema from 'idb-schema';
         };
 
         this.add = function (table, ...args) {
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -409,7 +411,7 @@ import IdbSchema from 'idb-schema';
         };
 
         this.update = function (table, ...args) {
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -483,7 +485,7 @@ import IdbSchema from 'idb-schema';
         };
 
         this.remove = function (table, key) {
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -519,7 +521,7 @@ import IdbSchema from 'idb-schema';
         };
 
         this.clear = function (table) {
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -535,7 +537,7 @@ import IdbSchema from 'idb-schema';
         };
 
         this.close = function () {
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -548,7 +550,7 @@ import IdbSchema from 'idb-schema';
         };
 
         this.get = function (table, key) {
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -582,7 +584,7 @@ import IdbSchema from 'idb-schema';
         };
 
         this.count = function (table, key) {
-            return new Promise((resolve, reject) => {
+            return new SyncPromise((resolve, reject) => {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
@@ -742,8 +744,7 @@ import IdbSchema from 'idb-schema';
         const db = e.target.result;
         dbCache[server][version] = db;
 
-        const s = new Server(db, server, version, noServerMethods, upgradeTransaction);
-        return s instanceof Error ? Promise.reject(s) : Promise.resolve(s);
+        return new Server(db, server, version, noServerMethods, upgradeTransaction);
     };
 
     const db = {
@@ -757,14 +758,18 @@ import IdbSchema from 'idb-schema';
             if (!dbCache[server]) {
                 dbCache[server] = {};
             }
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 if (dbCache[server][version]) {
-                    open({
+                    const s = open({
                         target: {
                             result: dbCache[server][version]
                         }
-                    }, server, version, noServerMethods)
-                    .then(resolve, reject);
+                    }, server, version, noServerMethods);
+                    if (s instanceof Error) {
+                        reject(s);
+                        return;
+                    }
+                    resolve(s);
                 } else {
                     let idbschema;
                     if (options.schemaBuilder) {
@@ -796,7 +801,14 @@ import IdbSchema from 'idb-schema';
                     }
                     const request = indexedDB.open(server, version);
 
-                    request.onsuccess = e => open(e, server, version, noServerMethods).then(resolve, reject);
+                    request.onsuccess = e => {
+                        const s = open(e, server, version, noServerMethods);
+                        if (s instanceof Error) {
+                            reject(s);
+                            return;
+                        }
+                        resolve(s);
+                    };
                     request.onerror = e => {
                         // Prevent default for `BadVersion` and `AbortError` errors, etc.
                         // These are not necessarily reported in console in Chrome but present; see
@@ -809,7 +821,16 @@ import IdbSchema from 'idb-schema';
                         let err;
                         if (idbschema) {
                             try {
-                                e.db = open(e, server, version, noServerMethods, e.target.transaction);
+                                const s = open(e, server, version, noServerMethods, e.target.transaction);
+                                e.db = function (cb) { // returning a Promise here led to problems with Firefox which
+                                                       //    would lose the upgrade transaction by the time the user
+                                                       //    callback sought to use the Server in a (modify) query
+                                    if (s instanceof Error) {
+                                        reject(s);
+                                        return;
+                                    }
+                                    cb(s);
+                                };
                                 idbschema.callback()(e);
                             } catch (idbError) {
                                 reject(idbError);
@@ -822,15 +843,19 @@ import IdbSchema from 'idb-schema';
                         }
                     };
                     request.onblocked = e => {
-                        const resume = new Promise(function (res, rej) {
+                        const resume = new SyncPromise(function (res, rej) {
                             // We overwrite handlers rather than make a new
                             //   open() since the original request is still
                             //   open and its onsuccess will still fire if
                             //   the user unblocks by closing the blocking
                             //   connection
                             request.onsuccess = (ev) => {
-                                open(ev, server, version, noServerMethods)
-                                    .then(res, rej);
+                                const s = open(ev, server, version, noServerMethods);
+                                if (s instanceof Error) {
+                                    reject(s);
+                                    return;
+                                }
+                                s.then(res);
                             };
                             request.onerror = e => rej(e);
                         });
@@ -842,7 +867,7 @@ import IdbSchema from 'idb-schema';
         },
 
         delete: function (dbName) {
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 const request = indexedDB.deleteDatabase(dbName); // Does not throw
 
                 request.onsuccess = e => resolve(e);
@@ -852,7 +877,7 @@ import IdbSchema from 'idb-schema';
                     e = e.newVersion === null || typeof Proxy === 'undefined' ? e : new Proxy(e, {get: function (target, name) {
                         return name === 'newVersion' ? null : target[name];
                     }});
-                    const resume = new Promise(function (res, rej) {
+                    const resume = new SyncPromise(function (res, rej) {
                         // We overwrite handlers rather than make a new
                         //   delete() since the original request is still
                         //   open and its onsuccess will still fire if
@@ -879,7 +904,7 @@ import IdbSchema from 'idb-schema';
         },
 
         cmp: function (param1, param2) {
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 try {
                     resolve(indexedDB.cmp(param1, param2));
                 } catch (e) {

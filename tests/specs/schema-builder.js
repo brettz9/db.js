@@ -41,18 +41,12 @@
                     .getStore('magazines')
                     .delIndex('byPublisher')
                     .addCallback(function (e) {
-                        e.db.then(function (s) {
+                        e.db(function (s) {
                             s.books.query('byTitle').all().modify({
                                 textISBN: function (record) {
-                                    console.log('Chrome');
                                     return 'My ISBN: ' + (record.isbn || '(none)');
                                 }
-                            }).execute().then(function () {
-                                console.log('Chrome');
-                            }, function (err) {
-                                console.log('Firefox');
-                                console.log(err);
-                            });
+                            }).execute();
                         });
                     });
             }
