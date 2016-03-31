@@ -53,15 +53,17 @@ Note that `open()` takes an options object with the following properties:
 - *version* - The current version of the database to open.
 Should be an integer. You can start with `1`. You must increase the `version`
 if updating the schema or otherwise the `schema` property will have no effect.
+If the `schemaBuilder` property is used, `version` (if present) cannot be
+greater than the highest version built by `schemaBuilder`.
 
 - *server* - The name of this server. Any subsequent attempt to open a server
 with this name (and with the current version) will reuse the already opened
 connection (unless it has been closed).
 
 - *schema* - Expects an object, or, if a function is supplied, a schema
-object should be returned). A schema object optionally has store names as
+object should be returned). A `schema` object optionally has store names as
 keys (these stores will be auto-created if not yet added and modified
-otherwise). The values of these schema objects should be objects, optionally
+otherwise). The values of these store objects should be objects, optionally
 with the property "key" and/or "indexes". The "key" property, if present,
 should contain valid [createObjectStore](https://developer.mozilla.org/en-US/docs/Web/API/IDBDatabase/createObjectStore)
 parameters (`keyPath` or `autoIncrement`). The "indexes" property should
@@ -71,7 +73,25 @@ objects which can include the optional parameters and values available to [creat
 `keyPath` of the index will be set to the supplied index key, or if present,
 a `keyPath` property on the provided parameter object. Note also that when a
 schema is supplied for a new version, any object stores not present on
-the schema object will be deleted.
+the schema object will be deleted. Note that `schema` will have no effect if
+`schemaBuilder` is used.
+
+- *schemaBuilder* - While the use of `schema` works more simply by deleting
+whatever stores existed before which no longer exist in `schema` and creating
+those which do not yet exist, `schemaBuilder` is a callback which will be
+passed an [idb-schema](https://github.com/treojs/idb-schema)
+object which allows for specifying an incremental path to upgrading a
+schema (as could be required if your users might have already opened say
+version 1 of your database and you have already made two upgrades to have
+a version 3 but the changes you have for version 2 must first be applied).
+Besides precise control of versioning (via `version()`) and, as with
+`schema`, the creating or deleting stores and indexes (via `addStore`,
+`delStore`, `getStore` (then `addIndex`, and `delIndex`)), `schemaBuilder`
+also offers `stores` for introspection on the existing stores and, more
+importantly, `addCallback` which is passed the `upgradeneeded` event and
+can do whatever work (e.g., data manipulations) may be desired. See the
+[idb-schema](https://github.com/treojs/idb-schema) documentation for full
+details.
 
 A connection is intended to be persisted, and you can perform multiple
 operations while it's kept open.
@@ -90,7 +110,10 @@ db.open({
     // ...
 }).catch(function (err) {
     if (err.type === 'blocked') {
-        oldConnection.close();
+        oldConnection.close(); // `versionchange` handlers set up for earlier
+                               //   versions (e.g., in other tabs) should have
+                               //   ideally anticipated this need already (see
+                               //   comment at end of this sample).
         return err.resume;
     }
     // Handle other errors here
