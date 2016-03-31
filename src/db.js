@@ -747,7 +747,12 @@ import IdbSchema from 'idb-schema';
 
     const open = function (e, server, version, noServerMethods, upgradeTransaction) {
         const db = e.target.result;
-        dbCache[server][version] = db;
+
+        if (!upgradeTransaction) { // We don't want to cache, especially if `upgradeTransaction`
+                                   // fails and thus does not properly overwrite with the real
+                                   // reusable object
+            dbCache[server][version] = db;
+        }
 
         return new Server(db, server, version, noServerMethods, upgradeTransaction);
     };

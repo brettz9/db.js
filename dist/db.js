@@ -851,7 +851,13 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 
     var _open = function _open(e, server, version, noServerMethods, upgradeTransaction) {
         var db = e.target.result;
-        dbCache[server][version] = db;
+
+        if (!upgradeTransaction) {
+            // We don't want to cache, especially if `upgradeTransaction`
+            // fails and thus does not properly overwrite with the real
+            // reusable object
+            dbCache[server][version] = db;
+        }
 
         return new Server(db, server, version, noServerMethods, upgradeTransaction);
     };
