@@ -61,7 +61,7 @@ import IdbSchema from 'idb-schema';
     }
     function mongoifyKey (key) {
         if (key && typeof key === 'object' && !(key instanceof IDBKeyRange)) {
-            let [type, args] = mongoDBToKeyRangeArgs(key);
+            const [type, args] = mongoDBToKeyRangeArgs(key);
             return IDBKeyRange[type](...args);
         }
         return key;
@@ -608,6 +608,7 @@ import IdbSchema from 'idb-schema';
                 transaction.onabort = e => reject(e);
 
                 const store = transaction.objectStore(table);
+
                 let req;
                 try {
                     req = key == null ? store.count() : store.count(key);
@@ -667,22 +668,24 @@ import IdbSchema from 'idb-schema';
         return err;
     };
 
-    const createSchema = function (e, request, schema, db, server, version) {
+    const createSchema = function (e, request, schema, db, server, version, clearUnusedStores) {
         if (!schema || schema.length === 0) {
             return;
         }
 
-        for (let i = 0; i < db.objectStoreNames.length; i++) {
-            const name = db.objectStoreNames[i];
-            if (!hasOwn.call(schema, name)) {
-                // Errors for which we are not concerned and why:
-                // `InvalidStateError` - We are in the upgrade transaction.
-                // `TransactionInactiveError` (as by the upgrade having already
-                //      completed or somehow aborting) - since we've just started and
-                //      should be without risk in this loop
-                // `NotFoundError` - since we are iterating the dynamically updated
-                //      `objectStoreNames`
-                db.deleteObjectStore(name);
+        if (clearUnusedStores) {
+            for (let i = 0; i < db.objectStoreNames.length; i++) {
+                const name = db.objectStoreNames[i];
+                if (!hasOwn.call(schema, name)) {
+                    // Errors for which we are not concerned and why:
+                    // `InvalidStateError` - We are in the upgrade transaction.
+                    // `TransactionInactiveError` (as by the upgrade having already
+                    //      completed or somehow aborting) - since we've just started and
+                    //      should be without risk in this loop
+                    // `NotFoundError` - since we are iterating the dynamically updated
+                    //      `objectStoreNames`
+                    db.deleteObjectStore(name);
+                }
             }
         }
 
@@ -752,10 +755,11 @@ import IdbSchema from 'idb-schema';
     const db = {
         version: '0.14.0',
         open: function (options) {
-            let server = options.server;
+            const server = options.server;
+            const noServerMethods = options.noServerMethods;
+            const clearUnusedStores = options.clearUnusedStores !== false;
             let version = options.version || 1;
             let schema = options.schema;
-            let noServerMethods = options.noServerMethods;
 
             if (!dbCache[server]) {
                 dbCache[server] = {};
@@ -778,7 +782,7 @@ import IdbSchema from 'idb-schema';
                         idbschema = new IdbSchema();
                         try {
                             options.schemaBuilder(idbschema);
-                            let idbschemaVersion = idbschema.version();
+                            const idbschemaVersion = idbschema.version();
                             if (options.version && idbschemaVersion < version) {
                                 throw new Error(
                                     'Your highest schema building (IDBSchema) version (' + idbschemaVersion + ') ' +
@@ -801,8 +805,8 @@ import IdbSchema from 'idb-schema';
                             return;
                         }
                     }
-                    const request = indexedDB.open(server, version);
 
+                    const request = indexedDB.open(server, version);
                     request.onsuccess = e => {
                         const s = open(e, server, version, noServerMethods);
                         if (s instanceof Error) {
@@ -820,7 +824,6 @@ import IdbSchema from 'idb-schema';
                         reject(e);
                     };
                     request.onupgradeneeded = e => {
-                        let err;
                         if (idbschema) {
                             try {
                                 const s = open(e, server, version, noServerMethods, e.target.transaction);
@@ -840,7 +843,7 @@ import IdbSchema from 'idb-schema';
                             }
                             return;
                         }
-                        err = createSchema(e, request, schema, e.target.result, server, version);
+                        const err = createSchema(e, request, schema, e.target.result, server, version, clearUnusedStores);
                         if (err) {
                             reject(err);
                         }

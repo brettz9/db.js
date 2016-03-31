@@ -601,6 +601,10 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
             return this.remove.apply(this, arguments);
         };
 
+        this.del = function () {
+            return this.remove.apply(this, arguments);
+        };
+
         this.clear = function (table) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
@@ -699,6 +703,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 };
 
                 var store = transaction.objectStore(table);
+
                 var req = void 0;
                 try {
                     req = key == null ? store.count() : store.count(key);
@@ -767,22 +772,24 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         return err;
     };
 
-    var createSchema = function createSchema(e, request, schema, db, server, version) {
+    var createSchema = function createSchema(e, request, schema, db, server, version, clearUnusedStores) {
         if (!schema || schema.length === 0) {
             return;
         }
 
-        for (var i = 0; i < db.objectStoreNames.length; i++) {
-            var name = db.objectStoreNames[i];
-            if (!hasOwn.call(schema, name)) {
-                // Errors for which we are not concerned and why:
-                // `InvalidStateError` - We are in the upgrade transaction.
-                // `TransactionInactiveError` (as by the upgrade having already
-                //      completed or somehow aborting) - since we've just started and
-                //      should be without risk in this loop
-                // `NotFoundError` - since we are iterating the dynamically updated
-                //      `objectStoreNames`
-                db.deleteObjectStore(name);
+        if (clearUnusedStores) {
+            for (var i = 0; i < db.objectStoreNames.length; i++) {
+                var name = db.objectStoreNames[i];
+                if (!hasOwn.call(schema, name)) {
+                    // Errors for which we are not concerned and why:
+                    // `InvalidStateError` - We are in the upgrade transaction.
+                    // `TransactionInactiveError` (as by the upgrade having already
+                    //      completed or somehow aborting) - since we've just started and
+                    //      should be without risk in this loop
+                    // `NotFoundError` - since we are iterating the dynamically updated
+                    //      `objectStoreNames`
+                    db.deleteObjectStore(name);
+                }
             }
         }
 
@@ -853,9 +860,10 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         version: '0.14.0',
         open: function open(options) {
             var server = options.server;
+            var noServerMethods = options.noServerMethods;
+            var clearUnusedStores = options.clearUnusedStores !== false;
             var version = options.version || 1;
             var schema = options.schema;
-            var noServerMethods = options.noServerMethods;
 
             if (!dbCache[server]) {
                 dbCache[server] = {};
@@ -903,8 +911,8 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                                 };
                             }
                         }
-                        var request = indexedDB.open(server, version);
 
+                        var request = indexedDB.open(server, version);
                         request.onsuccess = function (e) {
                             var s = _open(e, server, version, noServerMethods);
                             if (s instanceof Error) {
@@ -922,7 +930,6 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                             reject(e);
                         };
                         request.onupgradeneeded = function (e) {
-                            var err = void 0;
                             if (idbschema) {
                                 try {
                                     (function () {
@@ -930,7 +937,8 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                                         e.dbjs = function (cb) {
                                             // returning a Promise here led to problems with Firefox which
                                             //    would lose the upgrade transaction by the time the user
-                                            //    callback sought to use the Server in a (modify) query
+                                            //    callback sought to use the Server in a (modify) query,
+                                            //    perhaps due to this: http://stackoverflow.com/a/28388805/271577
                                             if (s instanceof Error) {
                                                 reject(s);
                                                 return;
@@ -944,7 +952,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                                 }
                                 return;
                             }
-                            err = createSchema(e, request, schema, e.target.result, server, version);
+                            var err = createSchema(e, request, schema, e.target.result, server, version, clearUnusedStores);
                             if (err) {
                                 reject(err);
                             }

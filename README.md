@@ -73,7 +73,9 @@ objects which can include the optional parameters and values available to [creat
 `keyPath` of the index will be set to the supplied index key, or if present,
 a `keyPath` property on the provided parameter object. Note also that when a
 schema is supplied for a new version, any object stores not present on
-the schema object will be deleted. Note that `schema` will have no effect if
+the schema object will be deleted unless `clearUnusedStores` is set to `false`
+(the latter may be necessary if you may be sharing the domain with applications
+building their own stores). Note that `schema` will have no effect if
 `schemaBuilder` is used.
 
 - *schemaBuilder* - While the use of `schema` works more simply by deleting
