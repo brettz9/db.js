@@ -24,7 +24,8 @@
 - Deprecated: on `schema.indexes`, in place of the index `key` property,
     `keyPath` should be used.
 - API fix: Disallow `map` on itself (only one will be used anyways);
-- API addition: Add Server aliases, `put` and `delete` (or `del`).
+- API addition: Add Server aliases, `put` and `delete` (or `del`) and `db.del`
+    as a `db.delete` alias.
 - API change: Allow `desc`, `distinct`, `filter`, `keys`, `map`, `modify`
     on `limit`;
 - API change: Allow `limit` on `distinct`, `desc`, `keys`;

@@ -896,6 +896,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                                 };
                             }
                         }
+
                         if (typeof schema === 'function') {
                             try {
                                 schema = schema();
@@ -982,6 +983,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
             });
         },
 
+        del: function del(dbName) {
+            return this.delete(dbName);
+        },
         delete: function _delete(dbName) {
             return new Promise(function (resolve, reject) {
                 var request = indexedDB.deleteDatabase(dbName); // Does not throw

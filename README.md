@@ -638,6 +638,8 @@ db.delete(dbName).catch(function (err) {
 See the documentation on `open` for more on such recovery from blocking
 connections.
 
+`del` is also available as an alias of `delete`.
+
 ## Comparing two keys
 
 Returns `1` if the first key is greater than the second, `-1` if the first

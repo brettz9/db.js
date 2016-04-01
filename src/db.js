@@ -799,6 +799,7 @@ import IdbSchema from 'idb-schema';
                             return;
                         }
                     }
+
                     if (typeof schema === 'function') {
                         try {
                             schema = schema();
@@ -875,6 +876,9 @@ import IdbSchema from 'idb-schema';
             });
         },
 
+        del: function (dbName) {
+            return this.delete(dbName);
+        },
         delete: function (dbName) {
             return new Promise(function (resolve, reject) {
                 const request = indexedDB.deleteDatabase(dbName); // Does not throw
