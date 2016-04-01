@@ -1,5 +1,19 @@
 # CHANGES
 
+## Schema version (unreleased)
+
+- API addition: Support a `schemaBuilder` callback which accepts an
+    [idb-schema](http://github.com/treojs/idb-schema) object for incremental,
+    versioned schema building and whose `addCallback` method will be
+    passed an enhanced `upgradeneeded` event object with a `dbjs` method
+    that will be passed a `Server` object for making db.js-style queries
+    (e.g., to modify store content). Addresses issues #84/#109
+- API addition: Support a `clearUnusedStores` property to conditionally avoid
+    deleting old stores.
+- Documentation: Update `version` to take `schemaBuilder` into account
+    (and document `schemaBuilder`).
+- Fix: Add Promise rejection for `update()`.
+
 ## Unreleased
 
 - Breaking change: Change `db.cmp()` to return a `Promise` to deliver
@@ -10,7 +24,7 @@
 - Deprecated: on `schema.indexes`, in place of the index `key` property,
     `keyPath` should be used.
 - API fix: Disallow `map` on itself (only one will be used anyways);
-- API addition: Add Server aliases, `put` and `delete`.
+- API addition: Add Server aliases, `put` and `delete` (or `del`).
 - API change: Allow `desc`, `distinct`, `filter`, `keys`, `map`, `modify`
     on `limit`;
 - API change: Allow `limit` on `distinct`, `desc`, `keys`;
@@ -18,7 +32,7 @@
 - API change: Allow `add`/`update` items to be of any value including
     `undefined` or `null`
 - API change: Allow Mongoifying of `add`/`update`/`remove` keys
-- API change: Disallow key in `count()` if null;
+- API change: Disallow key in `count()` if `null`;
 - Cross-browser support: Auto-wrap user-supplied `Server.error()` and
     `Server.addEventListener('error', ...)` handlers with `preventDefault`
     so as to avoid hard `ConstraintError` aborts in Firefox.
@@ -26,7 +40,7 @@
     `onupgradeneeded` errors will not become reported in Firefox (though it
     will occur regardless)
 - Cross-browser support (minor): wrap `delete` `onblocked` event's
-    `newVersion` (=null) with `Proxy` but avoid using using `Proxy`
+    `newVersion` (=`null`) with `Proxy` but avoid using using `Proxy`
     if not present for sake of PhantomJS or older browsers (Firefox);
     could not wrap `oldVersion`, however.
 - Fix: Ensure there is a promise rejection for a bad schema callback,

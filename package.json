@@ -46,6 +46,7 @@
     "grunt-eslint": "^17.3.1",
     "grunt-karma": "^0.12.1",
     "grunt-saucelabs": "^8.6.0",
+    "idb-schema": "^3.2.1",
     "jade": "^1.11.0",
     "jquery": "^2.2.2",
     "karma": "^0.13.21",

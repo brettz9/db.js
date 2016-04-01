@@ -1,22 +1,25 @@
+import IdbSchema from 'idb-schema';
+
 (function (local) {
     'use strict';
 
-    const IDBKeyRange = local.IDBKeyRange || local.webkitIDBKeyRange;
-    const transactionModes = {
-        readonly: 'readonly',
-        readwrite: 'readwrite'
-    };
     const hasOwn = Object.prototype.hasOwnProperty;
-    const defaultMapper = x => x;
 
     const indexedDB = local.indexedDB || local.webkitIndexedDB ||
         local.mozIndexedDB || local.oIndexedDB || local.msIndexedDB ||
         local.shimIndexedDB || (function () {
             throw new Error('IndexedDB required');
         }());
+    const IDBKeyRange = local.IDBKeyRange || local.webkitIDBKeyRange;
+
+    const defaultMapper = x => x;
+    const serverEvents = ['abort', 'error', 'versionchange'];
+    const transactionModes = {
+        readonly: 'readonly',
+        readwrite: 'readwrite'
+    };
 
     const dbCache = {};
-    const serverEvents = ['abort', 'error', 'versionchange'];
 
     function isObject (item) {
         return item && typeof item === 'object';
@@ -58,13 +61,13 @@
     }
     function mongoifyKey (key) {
         if (key && typeof key === 'object' && !(key instanceof IDBKeyRange)) {
-            let [type, args] = mongoDBToKeyRangeArgs(key);
+            const [type, args] = mongoDBToKeyRangeArgs(key);
             return IDBKeyRange[type](...args);
         }
         return key;
     }
 
-    const IndexQuery = function (table, db, indexName, preexistingError) {
+    const IndexQuery = function (table, db, indexName, preexistingError, upgradeTransaction) {
         let modifyObj = null;
 
         const runQuery = function (type, args, cursorType, direction, limitRange, filters, mapper) {
@@ -83,7 +86,7 @@
                 let counter = 0;
                 const indexArgs = [keyRange];
 
-                const transaction = db.transaction(table, modifyObj ? transactionModes.readwrite : transactionModes.readonly);
+                const transaction = upgradeTransaction || db.transaction(table, modifyObj ? transactionModes.readwrite : transactionModes.readonly);
                 transaction.onerror = e => reject(e);
                 transaction.onabort = e => reject(e);
                 transaction.oncomplete = () => resolve(results);
@@ -319,7 +322,7 @@
         };
     };
 
-    const Server = function (db, name, version, noServerMethods) {
+    const Server = function (db, name, version, noServerMethods, upgradeTransaction) {
         let closed = false;
 
         this.getIndexedDB = () => db;
@@ -327,7 +330,7 @@
 
         this.query = function (table, index) {
             const error = closed ? new Error('Database has been closed') : null;
-            return new IndexQuery(table, db, index, error); // Does not throw by itself
+            return new IndexQuery(table, db, index, error, upgradeTransaction); // Does not throw by itself
         };
 
         this.add = function (table, ...args) {
@@ -341,7 +344,7 @@
                     return records.concat(aip);
                 }, []);
 
-                const transaction = db.transaction(table, transactionModes.readwrite);
+                const transaction = upgradeTransaction || db.transaction(table, transactionModes.readwrite);
                 transaction.onerror = e => {
                     // prevent throwing a ConstraintError and aborting (hard)
                     // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
@@ -411,7 +414,7 @@
                     return records.concat(aip);
                 }, []);
 
-                const transaction = db.transaction(table, transactionModes.readwrite);
+                const transaction = upgradeTransaction || db.transaction(table, transactionModes.readwrite);
                 transaction.onerror = e => {
                     // prevent throwing aborting (hard)
                     // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
@@ -487,7 +490,7 @@
                     return;
                 }
 
-                const transaction = db.transaction(table, transactionModes.readwrite);
+                const transaction = upgradeTransaction || db.transaction(table, transactionModes.readwrite);
                 transaction.onerror = e => {
                     // prevent throwing and aborting (hard)
                     // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
@@ -510,13 +513,17 @@
             return this.remove(...args);
         };
 
+        this.del = function (...args) {
+            return this.remove(...args);
+        };
+
         this.clear = function (table) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
                     reject(new Error('Database has been closed'));
                     return;
                 }
-                const transaction = db.transaction(table, transactionModes.readwrite);
+                const transaction = upgradeTransaction || db.transaction(table, transactionModes.readwrite);
                 transaction.onerror = e => reject(e);
                 transaction.onabort = e => reject(e);
                 transaction.oncomplete = () => resolve();
@@ -532,9 +539,9 @@
                     reject(new Error('Database has been closed'));
                     return;
                 }
-                db.close();
                 closed = true;
                 delete dbCache[name][version];
+                db.close();
                 resolve();
             });
         };
@@ -552,7 +559,7 @@
                     return;
                 }
 
-                const transaction = db.transaction(table);
+                const transaction = upgradeTransaction || db.transaction(table);
                 transaction.onerror = e => {
                     // prevent throwing and aborting (hard)
                     // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
@@ -568,6 +575,7 @@
                     req = store.get(key);
                 } catch (err) {
                     reject(err);
+                    return;
                 }
                 req.onsuccess = e => resolve(e.target.result);
             });
@@ -586,7 +594,7 @@
                     return;
                 }
 
-                const transaction = db.transaction(table);
+                const transaction = upgradeTransaction || db.transaction(table);
                 transaction.onerror = e => {
                     // prevent throwing and aborting (hard)
                     // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
@@ -596,11 +604,13 @@
                 transaction.onabort = e => reject(e);
 
                 const store = transaction.objectStore(table);
+
                 let req;
                 try {
                     req = key == null ? store.count() : store.count(key);
                 } catch (err) {
                     reject(err);
+                    return;
                 }
                 req.onsuccess = e => resolve(e.target.result);
             });
@@ -612,7 +622,7 @@
             }
             if (eventName === 'error') {
                 db.addEventListener(eventName, function (e) {
-                    e.preventDefault(); // Needed by Firefox to prevent hard abort with ConstraintError
+                    e.preventDefault(); // Needed to prevent hard abort with ConstraintError
                     handler(e);
                 });
                 return;
@@ -655,22 +665,24 @@
         return err;
     };
 
-    const createSchema = function (e, request, schema, db, server, version) {
+    const createSchema = function (e, request, schema, db, server, version, clearUnusedStores) {
         if (!schema || schema.length === 0) {
             return;
         }
 
-        for (let i = 0; i < db.objectStoreNames.length; i++) {
-            const name = db.objectStoreNames[i];
-            if (!hasOwn.call(schema, name)) {
-                // Errors for which we are not concerned and why:
-                // `InvalidStateError` - We are in the upgrade transaction.
-                // `TransactionInactiveError` (as by the upgrade having already
-                //      completed or somehow aborting) - since we've just started and
-                //      should be without risk in this loop
-                // `NotFoundError` - since we are iterating the dynamically updated
-                //      `objectStoreNames`
-                db.deleteObjectStore(name);
+        if (clearUnusedStores) {
+            for (let i = 0; i < db.objectStoreNames.length; i++) {
+                const name = db.objectStoreNames[i];
+                if (!hasOwn.call(schema, name)) {
+                    // Errors for which we are not concerned and why:
+                    // `InvalidStateError` - We are in the upgrade transaction.
+                    // `TransactionInactiveError` (as by the upgrade having already
+                    //      completed or somehow aborting) - since we've just started and
+                    //      should be without risk in this loop
+                    // `NotFoundError` - since we are iterating the dynamically updated
+                    //      `objectStoreNames`
+                    db.deleteObjectStore(name);
+                }
             }
         }
 
@@ -730,34 +742,63 @@
         return ret;
     };
 
-    const open = function (e, server, version, noServerMethods) {
+    const open = function (e, server, version, noServerMethods, upgradeTransaction) {
         const db = e.target.result;
-        dbCache[server][version] = db;
 
-        const s = new Server(db, server, version, noServerMethods);
-        return s instanceof Error ? Promise.reject(s) : Promise.resolve(s);
+        if (!upgradeTransaction) { // We don't want to cache, especially if `upgradeTransaction`
+                                   // fails and thus does not properly overwrite with the real
+                                   // reusable object
+            dbCache[server][version] = db;
+        }
+
+        return new Server(db, server, version, noServerMethods, upgradeTransaction);
     };
 
     const db = {
         version: '0.15.0',
         open: function (options) {
-            let server = options.server;
+            const server = options.server;
+            const noServerMethods = options.noServerMethods;
+            const clearUnusedStores = options.clearUnusedStores !== false;
             let version = options.version || 1;
             let schema = options.schema;
-            let noServerMethods = options.noServerMethods;
 
             if (!dbCache[server]) {
                 dbCache[server] = {};
             }
             return new Promise(function (resolve, reject) {
                 if (dbCache[server][version]) {
-                    open({
+                    const s = open({
                         target: {
                             result: dbCache[server][version]
                         }
-                    }, server, version, noServerMethods)
-                    .then(resolve, reject);
+                    }, server, version, noServerMethods);
+                    if (s instanceof Error) {
+                        reject(s);
+                        return;
+                    }
+                    resolve(s);
                 } else {
+                    let idbschema;
+                    if (options.schemaBuilder) {
+                        idbschema = new IdbSchema();
+                        try {
+                            options.schemaBuilder(idbschema);
+                            const idbschemaVersion = idbschema.version();
+                            if (options.version && idbschemaVersion < version) {
+                                throw new Error(
+                                    'Your highest schema building (IDBSchema) version (' + idbschemaVersion + ') ' +
+                                    'must not be less than your designated version (' + version + ').'
+                                );
+                            }
+                            if (!options.version && idbschemaVersion > version) {
+                                version = idbschemaVersion;
+                            }
+                        } catch (e) {
+                            reject(e);
+                            return;
+                        }
+                    }
                     if (typeof schema === 'function') {
                         try {
                             schema = schema();
@@ -766,9 +807,16 @@
                             return;
                         }
                     }
-                    const request = indexedDB.open(server, version);
 
-                    request.onsuccess = e => open(e, server, version, noServerMethods).then(resolve, reject);
+                    const request = indexedDB.open(server, version);
+                    request.onsuccess = e => {
+                        const s = open(e, server, version, noServerMethods);
+                        if (s instanceof Error) {
+                            reject(s);
+                            return;
+                        }
+                        resolve(s);
+                    };
                     request.onerror = e => {
                         // Prevent default for `BadVersion` and `AbortError` errors, etc.
                         // These are not necessarily reported in console in Chrome but present; see
@@ -778,7 +826,27 @@
                         reject(e);
                     };
                     request.onupgradeneeded = e => {
-                        let err = createSchema(e, request, schema, e.target.result, server, version);
+                        if (idbschema) {
+                            try {
+                                const s = open(e, server, version, noServerMethods, e.target.transaction);
+                                delete s.close; // Closing should not be done in `upgradeneeded`
+                                e.dbjs = function (cb) { // returning a Promise here led to problems with Firefox which
+                                                       //    would lose the upgrade transaction by the time the user
+                                                       //    callback sought to use the Server in a (modify) query,
+                                                       //    perhaps due to this: http://stackoverflow.com/a/28388805/271577
+                                    if (s instanceof Error) {
+                                        reject(s);
+                                        return;
+                                    }
+                                    cb(s);
+                                };
+                                idbschema.callback()(e);
+                            } catch (idbError) {
+                                reject(idbError);
+                            }
+                            return;
+                        }
+                        const err = createSchema(e, request, schema, e.target.result, server, version, clearUnusedStores);
                         if (err) {
                             reject(err);
                         }
@@ -791,8 +859,12 @@
                             //   the user unblocks by closing the blocking
                             //   connection
                             request.onsuccess = (ev) => {
-                                open(ev, server, version, noServerMethods)
-                                    .then(res, rej);
+                                const s = open(ev, server, version, noServerMethods);
+                                if (s instanceof Error) {
+                                    rej(s);
+                                    return;
+                                }
+                                res(s);
                             };
                             request.onerror = e => rej(e);
                         });
