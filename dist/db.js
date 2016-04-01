@@ -9,14 +9,61 @@ var _idbSchema = require('idb-schema');
 
 var _idbSchema2 = _interopRequireDefault(_idbSchema);
 
+var _syncPromise = require('sync-promise');
+
+var _syncPromise2 = _interopRequireDefault(_syncPromise);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
 
-(function (local) {
+(function (local, Promise) {
     'use strict';
 
     var hasOwn = Object.prototype.hasOwnProperty;
+
+    // SyncPromise utils
+    function runAsync(cb) {
+        setTimeout(function () {
+            cb();
+        }, 0);
+    }
+    Promise.resolve = function (val) {
+        return new Promise(function (resolve, reject) {
+            runAsync(function () {
+                resolve(val);
+            });
+        });
+    };
+    Promise.reject = function (val) {
+        return new Promise(function (resolve, reject) {
+            runAsync(function () {
+                reject(val);
+            });
+        });
+    };
+    function trySync(trying, reject, resolve) {
+        try {
+            var _ret = function () {
+                var result = trying();
+                if (resolve) {
+                    runAsync(function () {
+                        resolve(result);
+                    });
+                }
+                return {
+                    v: true
+                };
+            }();
+
+            if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
+        } catch (err) {
+            runAsync(function () {
+                reject(err);
+            });
+            return false;
+        }
+    }
 
     var indexedDB = local.indexedDB || local.webkitIndexedDB || local.mozIndexedDB || local.oIndexedDB || local.msIndexedDB || local.shimIndexedDB || function () {
         throw new Error('IndexedDB required');
@@ -98,12 +145,12 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         var runQuery = function runQuery(type, args, cursorType, direction, limitRange, filters, mapper) {
             return new Promise(function (resolve, reject) {
                 var keyRange = void 0;
-                try {
+                if (!trySync(function () {
                     keyRange = type ? IDBKeyRange[type].apply(IDBKeyRange, _toConsumableArray(args)) : null;
-                } catch (e) {
-                    reject(e);
+                }, reject)) {
                     return;
                 }
+
                 filters = filters || [];
                 limitRange = limitRange || null;
 
@@ -156,11 +203,11 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                         } else if (limitRange !== null && counter >= limitRange[0] + limitRange[1]) {
                                 // Out of limit range... skip
                             } else {
-                                    var _ret = function () {
+                                    var _ret2 = function () {
                                         var matchFilter = true;
                                         var result = 'value' in cursor ? cursor.value : cursor.key;
 
-                                        try {
+                                        if (!trySync(function () {
                                             filters.forEach(function (filter) {
                                                 if (!filter || !filter.length) {
                                                     // Invalid filter do nothing
@@ -170,9 +217,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                                                         matchFilter = matchFilter && filter[0](result);
                                                     }
                                             });
-                                        } catch (err) {
-                                            // Could be filter on non-object or error in filter function
-                                            reject(err);
+                                        }, reject)) {
                                             return {
                                                 v: void 0
                                             };
@@ -182,20 +227,18 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                                             counter++;
                                             // If we're doing a modify, run it now
                                             if (modifyObj) {
-                                                try {
+                                                if (!trySync(function () {
                                                     result = modifyRecord(result);
                                                     cursor.update(result); // `result` should only be a "structured clone"-able object
-                                                } catch (err) {
-                                                    reject(err);
+                                                }, reject)) {
                                                     return {
                                                         v: void 0
                                                     };
                                                 }
                                             }
-                                            try {
+                                            if (!trySync(function () {
                                                 results.push(mapper(result));
-                                            } catch (err) {
-                                                reject(err);
+                                            }, reject)) {
                                                 return {
                                                     v: void 0
                                                 };
@@ -204,7 +247,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                                         cursor.continue();
                                     }();
 
-                                    if ((typeof _ret === 'undefined' ? 'undefined' : _typeof(_ret)) === "object") return _ret.v;
+                                    if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
                                 }
                     }
                 };
@@ -406,7 +449,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
 
@@ -436,24 +481,22 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                         key = record.key;
                         record = record.item;
                         if (key != null) {
-                            try {
+                            if (!trySync(function () {
                                 key = mongoifyKey(key);
-                            } catch (e) {
-                                reject(e);
+                            }, reject)) {
                                 return true;
                             }
                         }
                     }
 
-                    try {
+                    if (!trySync(function () {
                         // Safe to add since in readwrite
                         if (key != null) {
                             req = store.add(record, key);
                         } else {
                             req = store.add(record);
                         }
-                    } catch (e) {
-                        reject(e);
+                    }, reject)) {
                         return true;
                     }
 
@@ -485,7 +528,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
 
@@ -516,24 +561,22 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                         key = record.key;
                         record = record.item;
                         if (key != null) {
-                            try {
+                            if (!trySync(function () {
                                 key = mongoifyKey(key);
-                            } catch (e) {
-                                reject(e);
+                            }, reject)) {
                                 return true;
                             }
                         }
                     }
-                    try {
-                        // These can throw DataError, e.g., if function passed in
+
+                    if (!trySync(function () {
                         if (key != null) {
                             req = store.put(record, key);
                         } else {
                             req = store.put(record);
                         }
-                    } catch (err) {
-                        reject(err);
-                        return true;
+                    }, reject)) {
+                        return;
                     }
 
                     req.onsuccess = function (e) {
@@ -564,13 +607,14 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         this.remove = function (table, key) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
-                try {
+                if (!trySync(function () {
                     key = mongoifyKey(key);
-                } catch (e) {
-                    reject(e);
+                }, reject)) {
                     return;
                 }
 
@@ -589,10 +633,10 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 };
 
                 var store = transaction.objectStore(table);
-                try {
+                if (!trySync(function () {
                     store.delete(key);
-                } catch (err) {
-                    reject(err);
+                }, reject)) {
+                    return;
                 }
             });
         };
@@ -608,7 +652,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         this.clear = function (table) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
                 var transaction = upgradeTransaction || db.transaction(table, transactionModes.readwrite);
@@ -630,26 +676,31 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         this.close = function () {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
                 closed = true;
                 delete dbCache[name][version];
                 db.close();
-                resolve();
+                runAsync(function () {
+                    resolve();
+                });
             });
         };
 
         this.get = function (table, key) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
-                try {
+                if (!trySync(function () {
                     key = mongoifyKey(key);
-                } catch (e) {
-                    reject(e);
+                }, reject)) {
                     return;
                 }
 
@@ -667,10 +718,10 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 var store = transaction.objectStore(table);
 
                 var req = void 0;
-                try {
+                if (!trySync(function () {
                     req = store.get(key);
-                } catch (err) {
-                    reject(err);
+                }, reject)) {
+                    return;
                 }
                 req.onsuccess = function (e) {
                     return resolve(e.target.result);
@@ -681,13 +732,14 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         this.count = function (table, key) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
-                try {
+                if (!trySync(function () {
                     key = mongoifyKey(key);
-                } catch (e) {
-                    reject(e);
+                }, reject)) {
                     return;
                 }
 
@@ -705,10 +757,10 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 var store = transaction.objectStore(table);
 
                 var req = void 0;
-                try {
+                if (!trySync(function () {
                     req = key == null ? store.count() : store.count(key);
-                } catch (err) {
-                    reject(err);
+                }, reject)) {
+                    return;
                 }
                 req.onsuccess = function (e) {
                     return resolve(e.target.result);
@@ -876,22 +928,32 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
             }
             return new Promise(function (resolve, reject) {
                 if (dbCache[server][version]) {
-                    var s = _open({
-                        target: {
-                            result: dbCache[server][version]
+                    var _ret3 = function () {
+                        var s = _open({
+                            target: {
+                                result: dbCache[server][version]
+                            }
+                        }, server, version, noServerMethods);
+                        if (s instanceof Error) {
+                            runAsync(function () {
+                                reject(s);
+                            });
+                            return {
+                                v: void 0
+                            };
                         }
-                    }, server, version, noServerMethods);
-                    if (s instanceof Error) {
-                        reject(s);
-                        return;
-                    }
-                    resolve(s);
+                        runAsync(function () {
+                            resolve(s);
+                        });
+                    }();
+
+                    if ((typeof _ret3 === 'undefined' ? 'undefined' : _typeof(_ret3)) === "object") return _ret3.v;
                 } else {
-                    var _ret2 = function () {
+                    var _ret4 = function () {
                         var idbschema = void 0;
                         if (options.schemaBuilder) {
                             idbschema = new _idbSchema2.default();
-                            try {
+                            if (!trySync(function () {
                                 options.schemaBuilder(idbschema);
                                 var idbschemaVersion = idbschema.version();
                                 if (options.version && idbschemaVersion < version) {
@@ -900,8 +962,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                                 if (!options.version && idbschemaVersion > version) {
                                     version = idbschemaVersion;
                                 }
-                            } catch (e) {
-                                reject(e);
+                            }, reject)) {
                                 return {
                                     v: void 0
                                 };
@@ -911,7 +972,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                             try {
                                 schema = schema();
                             } catch (e) {
-                                reject(e);
+                                runAsync(function () {
+                                    reject(e);
+                                });
                                 return {
                                     v: void 0
                                 };
@@ -922,7 +985,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                         request.onsuccess = function (e) {
                             var s = _open(e, server, version, noServerMethods);
                             if (s instanceof Error) {
-                                reject(s);
+                                runAsync(function () {
+                                    reject(s);
+                                });
                                 return;
                             }
                             resolve(s);
@@ -937,31 +1002,31 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                         };
                         request.onupgradeneeded = function (e) {
                             if (idbschema) {
-                                try {
-                                    (function () {
-                                        var s = _open(e, server, version, noServerMethods, e.target.transaction);
-                                        delete s.close; // Closing should not be done in `upgradeneeded`
-                                        e.dbjs = function (cb) {
-                                            // returning a Promise here led to problems with Firefox which
-                                            //    would lose the upgrade transaction by the time the user
-                                            //    callback sought to use the Server in a (modify) query,
-                                            //    perhaps due to this: http://stackoverflow.com/a/28388805/271577
-                                            if (s instanceof Error) {
+                                trySync(function () {
+                                    var s = _open(e, server, version, noServerMethods, e.target.transaction);
+                                    delete s.close; // Closing should not be done in `upgradeneeded`
+                                    e.dbjs = function (cb) {
+                                        // returning a Promise here led to problems with Firefox which
+                                        //    would lose the upgrade transaction by the time the user
+                                        //    callback sought to use the Server in a (modify) query,
+                                        //    perhaps due to this: http://stackoverflow.com/a/28388805/271577
+                                        if (s instanceof Error) {
+                                            runAsync(function () {
                                                 reject(s);
-                                                return;
-                                            }
-                                            cb(s);
-                                        };
-                                        idbschema.callback()(e);
-                                    })();
-                                } catch (idbError) {
-                                    reject(idbError);
-                                }
+                                            });
+                                            return;
+                                        }
+                                        cb(s);
+                                    };
+                                    idbschema.callback()(e);
+                                }, reject);
                                 return;
                             }
                             var err = createSchema(e, request, schema, e.target.result, server, version, clearUnusedStores);
                             if (err) {
-                                reject(err);
+                                runAsync(function () {
+                                    reject(err);
+                                });
                             }
                         };
                         request.onblocked = function (e) {
@@ -988,7 +1053,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                         };
                     }();
 
-                    if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
+                    if ((typeof _ret4 === 'undefined' ? 'undefined' : _typeof(_ret4)) === "object") return _ret4.v;
                 }
             });
         },
@@ -1038,10 +1103,10 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 
         cmp: function cmp(param1, param2) {
             return new Promise(function (resolve, reject) {
-                try {
-                    resolve(indexedDB.cmp(param1, param2));
-                } catch (e) {
-                    reject(e);
+                if (!trySync(function () {
+                    return indexedDB.cmp(param1, param2);
+                }, reject, resolve)) {
+                    return;
                 }
             });
         }
@@ -1056,10 +1121,10 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
     } else {
         local.db = db;
     }
-})(self);
+})(self, _syncPromise2.default);
 
 
-},{"idb-schema":2}],2:[function(require,module,exports){
+},{"idb-schema":2,"sync-promise":8}],2:[function(require,module,exports){
 'use strict';
 
 var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
@@ -1428,6 +1493,122 @@ module.exports = function (obj) {
 
 	return ret;
 };
+
+},{}],8:[function(require,module,exports){
+function isPromise(p) {
+  return p && typeof p.then === 'function';
+}
+
+// States
+var PENDING = 2,
+    FULFILLED = 0, // We later abuse these as array indices
+    REJECTED = 1;
+
+function SyncPromise(fn) {
+  var self = this;
+  self.v = 0; // Value, this will be set to either a resolved value or rejected reason
+  self.s = PENDING; // State of the promise
+  self.c = [[],[]]; // Callbacks c[0] is fulfillment and c[1] is rejection callbacks
+  self.a = false; // Has the promise been resolved synchronously
+  var syncResolved = true;
+  function transist(val, state) {
+    self.a = syncResolved;
+    self.v = val;
+    self.s = state;
+    if (state === REJECTED && !self.c[state].length) {
+      throw val;
+    }
+    self.c[state].forEach(function(fn) { fn(val); });
+    self.c = null; // Release memory.
+  }
+  function resolve(val) {
+    if (!self.c) {
+      // Already resolved, do nothing.
+    } else if (isPromise(val)) {
+      val.then(resolve).catch(reject);
+    } else {
+      transist(val, FULFILLED);
+    }
+  }
+  function reject(reason) {
+    if (!self.c) {
+      // Already resolved, do nothing.
+    } else if (isPromise(reason)) {
+      reason.then(reject).catch(reject);
+    } else {
+      transist(reason, REJECTED);
+    }
+  }
+  fn(resolve, reject);
+  syncResolved = false;
+}
+
+var prot = SyncPromise.prototype;
+
+prot.then = function(cb) {
+  var self = this;
+  if (self.a) { // Promise has been resolved synchronously
+    throw new Error('Can not call then on synchonously resolved promise');
+  }
+  return new SyncPromise(function(resolve, reject) {
+    function settle() {
+      try {
+        resolve(cb(self.v));
+      } catch(e) {
+        reject(e);
+      }
+    }
+    if (self.s === FULFILLED) {
+      settle();
+    } else if (self.s === REJECTED) {
+      reject(self.v);
+    } else {
+      self.c[FULFILLED].push(settle);
+      self.c[REJECTED].push(reject);
+    }
+  });
+};
+
+prot.catch = function(cb) {
+  var self = this;
+  if (self.a) { // Promise has been resolved synchronously
+    throw new Error('Can not call catch on synchonously resolved promise');
+  }
+  return new SyncPromise(function(resolve, reject) {
+    function settle() {
+      try {
+        resolve(cb(self.v));
+      } catch(e) {
+        reject(e);
+      }
+    }
+    if (self.s === REJECTED) {
+      settle();
+    } else if (self.s === FULFILLED) {
+      resolve(self.v);
+    } else {
+      self.c[REJECTED].push(settle);
+      self.c[FULFILLED].push(resolve);
+    }
+  });
+};
+
+SyncPromise.all = function(promises) {
+  return new SyncPromise(function(resolve, reject, l) {
+    l = promises.length;
+    promises.forEach(function(p, i) {
+      if (isPromise(p)) {
+        p.then(function(res) {
+          promises[i] = res;
+          --l || resolve(promises);
+        }).catch(reject);
+      } else {
+        --l || resolve(promises);
+      }
+    });
+  });
+};
+module.exports = SyncPromise;
 
 },{}]},{},[1])(1)
 });

@@ -1,9 +1,47 @@
 import IdbSchema from 'idb-schema';
+import SyncPromise from 'sync-promise';
 
-(function (local) {
+(function (local, Promise) {
     'use strict';
 
     const hasOwn = Object.prototype.hasOwnProperty;
+
+    // SyncPromise utils
+    function runAsync (cb) {
+        setTimeout(function () {
+            cb();
+        }, 0);
+    }
+    Promise.resolve = function (val) {
+        return new Promise(function (resolve, reject) {
+            runAsync(function () {
+                resolve(val);
+            });
+        });
+    };
+    Promise.reject = function (val) {
+        return new Promise(function (resolve, reject) {
+            runAsync(function () {
+                reject(val);
+            });
+        });
+    };
+    function trySync (trying, reject, resolve) {
+        try {
+            let result = trying();
+            if (resolve) {
+                runAsync(function () {
+                    resolve(result);
+                });
+            }
+            return true;
+        } catch (err) {
+            runAsync(function () {
+                reject(err);
+            });
+            return false;
+        }
+    }
 
     const indexedDB = local.indexedDB || local.webkitIndexedDB ||
         local.mozIndexedDB || local.oIndexedDB || local.msIndexedDB ||
@@ -73,12 +111,12 @@ import IdbSchema from 'idb-schema';
         const runQuery = function (type, args, cursorType, direction, limitRange, filters, mapper) {
             return new Promise(function (resolve, reject) {
                 let keyRange;
-                try {
+                if (!trySync(function () {
                     keyRange = type ? IDBKeyRange[type](...args) : null;
-                } catch (e) {
-                    reject(e);
+                }, reject)) {
                     return;
                 }
+
                 filters = filters || [];
                 limitRange = limitRange || null;
 
@@ -125,7 +163,7 @@ import IdbSchema from 'idb-schema';
                             let matchFilter = true;
                             let result = 'value' in cursor ? cursor.value : cursor.key;
 
-                            try {
+                            if (!trySync(function () {
                                 filters.forEach(function (filter) {
                                     if (!filter || !filter.length) {
                                         // Invalid filter do nothing
@@ -135,8 +173,7 @@ import IdbSchema from 'idb-schema';
                                         matchFilter = matchFilter && filter[0](result);
                                     }
                                 });
-                            } catch (err) { // Could be filter on non-object or error in filter function
-                                reject(err);
+                            }, reject)) {
                                 return;
                             }
 
@@ -144,18 +181,16 @@ import IdbSchema from 'idb-schema';
                                 counter++;
                                 // If we're doing a modify, run it now
                                 if (modifyObj) {
-                                    try {
+                                    if (!trySync(function () {
                                         result = modifyRecord(result);
                                         cursor.update(result); // `result` should only be a "structured clone"-able object
-                                    } catch (err) {
-                                        reject(err);
+                                    }, reject)) {
                                         return;
                                     }
                                 }
-                                try {
+                                if (!trySync(function () {
                                     results.push(mapper(result));
-                                } catch (err) {
-                                    reject(err);
+                                }, reject)) {
                                     return;
                                 }
                             }
@@ -341,7 +376,9 @@ import IdbSchema from 'idb-schema';
         this.add = function (table, ...args) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
 
@@ -366,24 +403,22 @@ import IdbSchema from 'idb-schema';
                         key = record.key;
                         record = record.item;
                         if (key != null) {
-                            try {
+                            if (!trySync(function () {
                                 key = mongoifyKey(key);
-                            } catch (e) {
-                                reject(e);
+                            }, reject)) {
                                 return true;
                             }
                         }
                     }
 
-                    try {
+                    if (!trySync(function () {
                         // Safe to add since in readwrite
                         if (key != null) {
                             req = store.add(record, key);
                         } else {
                             req = store.add(record);
                         }
-                    } catch (e) {
-                        reject(e);
+                    }, reject)) {
                         return true;
                     }
 
@@ -411,7 +446,9 @@ import IdbSchema from 'idb-schema';
         this.update = function (table, ...args) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
 
@@ -437,24 +474,22 @@ import IdbSchema from 'idb-schema';
                         key = record.key;
                         record = record.item;
                         if (key != null) {
-                            try {
+                            if (!trySync(function () {
                                 key = mongoifyKey(key);
-                            } catch (e) {
-                                reject(e);
+                            }, reject)) {
                                 return true;
                             }
                         }
                     }
-                    try {
-                        // These can throw DataError, e.g., if function passed in
+
+                    if (!trySync(function () {
                         if (key != null) {
                             req = store.put(record, key);
                         } else {
                             req = store.put(record);
                         }
-                    } catch (err) {
-                        reject(err);
-                        return true;
+                    }, reject)) {
+                        return;
                     }
 
                     req.onsuccess = function (e) {
@@ -485,13 +520,14 @@ import IdbSchema from 'idb-schema';
         this.remove = function (table, key) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
-                try {
+                if (!trySync(function () {
                     key = mongoifyKey(key);
-                } catch (e) {
-                    reject(e);
+                }, reject)) {
                     return;
                 }
 
@@ -506,10 +542,10 @@ import IdbSchema from 'idb-schema';
                 transaction.oncomplete = () => resolve(key);
 
                 const store = transaction.objectStore(table);
-                try {
+                if (!trySync(function () {
                     store.delete(key);
-                } catch (err) {
-                    reject(err);
+                }, reject)) {
+                    return;
                 }
             });
         };
@@ -525,7 +561,9 @@ import IdbSchema from 'idb-schema';
         this.clear = function (table) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
                 const transaction = upgradeTransaction || db.transaction(table, transactionModes.readwrite);
@@ -541,26 +579,31 @@ import IdbSchema from 'idb-schema';
         this.close = function () {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
                 closed = true;
                 delete dbCache[name][version];
                 db.close();
-                resolve();
+                runAsync(function () {
+                    resolve();
+                });
             });
         };
 
         this.get = function (table, key) {
             return new Promise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
-                try {
+                if (!trySync(function () {
                     key = mongoifyKey(key);
-                } catch (e) {
-                    reject(e);
+                }, reject)) {
                     return;
                 }
 
@@ -576,10 +619,10 @@ import IdbSchema from 'idb-schema';
                 const store = transaction.objectStore(table);
 
                 let req;
-                try {
+                if (!trySync(function () {
                     req = store.get(key);
-                } catch (err) {
-                    reject(err);
+                }, reject)) {
+                    return;
                 }
                 req.onsuccess = e => resolve(e.target.result);
             });
@@ -588,13 +631,14 @@ import IdbSchema from 'idb-schema';
         this.count = function (table, key) {
             return new Promise((resolve, reject) => {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    runAsync(function () {
+                        reject(new Error('Database has been closed'));
+                    });
                     return;
                 }
-                try {
+                if (!trySync(function () {
                     key = mongoifyKey(key);
-                } catch (e) {
-                    reject(e);
+                }, reject)) {
                     return;
                 }
 
@@ -610,10 +654,10 @@ import IdbSchema from 'idb-schema';
                 const store = transaction.objectStore(table);
 
                 let req;
-                try {
+                if (!trySync(function () {
                     req = key == null ? store.count() : store.count(key);
-                } catch (err) {
-                    reject(err);
+                }, reject)) {
+                    return;
                 }
                 req.onsuccess = e => resolve(e.target.result);
             });
@@ -777,15 +821,19 @@ import IdbSchema from 'idb-schema';
                         }
                     }, server, version, noServerMethods);
                     if (s instanceof Error) {
-                        reject(s);
+                        runAsync(function () {
+                            reject(s);
+                        });
                         return;
                     }
-                    resolve(s);
+                    runAsync(function () {
+                        resolve(s);
+                    });
                 } else {
                     let idbschema;
                     if (options.schemaBuilder) {
                         idbschema = new IdbSchema();
-                        try {
+                        if (!trySync(function () {
                             options.schemaBuilder(idbschema);
                             const idbschemaVersion = idbschema.version();
                             if (options.version && idbschemaVersion < version) {
@@ -797,8 +845,7 @@ import IdbSchema from 'idb-schema';
                             if (!options.version && idbschemaVersion > version) {
                                 version = idbschemaVersion;
                             }
-                        } catch (e) {
-                            reject(e);
+                        }, reject)) {
                             return;
                         }
                     }
@@ -806,7 +853,9 @@ import IdbSchema from 'idb-schema';
                         try {
                             schema = schema();
                         } catch (e) {
-                            reject(e);
+                            runAsync(function () {
+                                reject(e);
+                            });
                             return;
                         }
                     }
@@ -815,7 +864,9 @@ import IdbSchema from 'idb-schema';
                     request.onsuccess = e => {
                         const s = open(e, server, version, noServerMethods);
                         if (s instanceof Error) {
-                            reject(s);
+                            runAsync(function () {
+                                reject(s);
+                            });
                             return;
                         }
                         resolve(s);
@@ -830,7 +881,7 @@ import IdbSchema from 'idb-schema';
                     };
                     request.onupgradeneeded = e => {
                         if (idbschema) {
-                            try {
+                            trySync(function () {
                                 const s = open(e, server, version, noServerMethods, e.target.transaction);
                                 delete s.close; // Closing should not be done in `upgradeneeded`
                                 e.dbjs = function (cb) { // returning a Promise here led to problems with Firefox which
@@ -838,20 +889,22 @@ import IdbSchema from 'idb-schema';
                                                        //    callback sought to use the Server in a (modify) query,
                                                        //    perhaps due to this: http://stackoverflow.com/a/28388805/271577
                                     if (s instanceof Error) {
-                                        reject(s);
+                                        runAsync(function () {
+                                            reject(s);
+                                        });
                                         return;
                                     }
                                     cb(s);
                                 };
                                 idbschema.callback()(e);
-                            } catch (idbError) {
-                                reject(idbError);
-                            }
+                            }, reject);
                             return;
                         }
                         const err = createSchema(e, request, schema, e.target.result, server, version, clearUnusedStores);
                         if (err) {
-                            reject(err);
+                            runAsync(function () {
+                                reject(err);
+                            });
                         }
                     };
                     request.onblocked = e => {
@@ -917,10 +970,10 @@ import IdbSchema from 'idb-schema';
 
         cmp: function (param1, param2) {
             return new Promise(function (resolve, reject) {
-                try {
-                    resolve(indexedDB.cmp(param1, param2));
-                } catch (e) {
-                    reject(e);
+                if (!trySync(function () {
+                    return indexedDB.cmp(param1, param2);
+                }, reject, resolve)) {
+                    return;
                 }
             });
         }
@@ -933,4 +986,4 @@ import IdbSchema from 'idb-schema';
     } else {
         local.db = db;
     }
-}(self));
+}(self, SyncPromise));
