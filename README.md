@@ -35,6 +35,7 @@ db.open({
     version: 1,
     schema: {
         people: {
+            // Optionally add parameters for creating the object store
             key: {keyPath: 'id', autoIncrement: true},
             // Optionally add indexes
             indexes: {
