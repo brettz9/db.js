@@ -782,6 +782,13 @@ import IdbSchema from 'idb-schema';
                     let idbschema;
                     if (options.schemaBuilder) {
                         idbschema = new IdbSchema();
+                        const _addCallback = idbschema.addCallback;
+                        idbschema.addCallback = function (cb) {
+                            function newCb (e) {
+                                cb(e, idbschema._dbjs_server);
+                            }
+                            return _addCallback.call(idbschema, newCb);
+                        };
                         try {
                             options.schemaBuilder(idbschema);
                             const idbschemaVersion = idbschema.version();
@@ -830,17 +837,17 @@ import IdbSchema from 'idb-schema';
                         if (idbschema) {
                             try {
                                 const s = open(e, server, version, noServerMethods, e.target.transaction);
+                                if (s instanceof Error) {
+                                    reject(s);
+                                    return;
+                                }
                                 delete s.close; // Closing should not be done in `upgradeneeded`
-                                e.dbjs = function (cb) { // returning a Promise here led to problems with Firefox which
-                                                       //    would lose the upgrade transaction by the time the user
-                                                       //    callback sought to use the Server in a (modify) query,
-                                                       //    perhaps due to this: http://stackoverflow.com/a/28388805/271577
-                                    if (s instanceof Error) {
-                                        reject(s);
-                                        return;
-                                    }
-                                    cb(s);
-                                };
+
+                                // Supplying a Promise here led to problems with Firefox which
+                                //    would lose the upgrade transaction by the time the user
+                                //    callback sought to use the Server in a (modify) query,
+                                //    perhaps due to this: http://stackoverflow.com/a/28388805/271577
+                                idbschema._dbjs_server = s;
                                 idbschema.callback()(e);
                             } catch (idbError) {
                                 reject(idbError);

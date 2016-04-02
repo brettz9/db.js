@@ -5,8 +5,8 @@
 - API addition: Support a `schemaBuilder` callback which accepts an
     [idb-schema](http://github.com/treojs/idb-schema) object for incremental,
     versioned schema building and whose `addCallback` method will be
-    passed an enhanced `upgradeneeded` event object with a `dbjs` method
-    that will be passed a `Server` object for making db.js-style queries
+    passed an enhanced `upgradeneeded` event object that will be passed a
+    `Server` object as its second argument for making db.js-style queries
     (e.g., to modify store content). Addresses issues #84/#109
 - API addition: Support a `clearUnusedStores` property to conditionally avoid
     deleting old stores.

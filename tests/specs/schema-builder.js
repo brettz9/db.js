@@ -40,14 +40,12 @@
                 idbs.version(4)
                     .getStore('magazines')
                     .delIndex('byPublisher')
-                    .addCallback(function (e) {
-                        e.dbjs(function (s) {
-                            s.books.query('byTitle').all().modify({
-                                textISBN: function (record) {
-                                    return 'My ISBN: ' + (record.isbn || '(none)');
-                                }
-                            }).execute();
-                        });
+                    .addCallback(function (e, s) {
+                        s.books.query('byTitle').all().modify({
+                            textISBN: function (record) {
+                                return 'My ISBN: ' + (record.isbn || '(none)');
+                            }
+                        }).execute();
                     });
             }
             var gotISBN = false;

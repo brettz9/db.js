@@ -95,13 +95,14 @@ can be used for making queries such as modifying store values. See the
 [idb-schema](https://github.com/treojs/idb-schema) documentation for
 full details.
 
-Note that the event object which is passed to `addCallback` is the underlying
-IndexedDB event, but it is enhanced with a `dbjs` method that can be supplied
-a callback which will be passed the db.js `Server` object to allow db.js-style
-queries during the `upgradeneeded` event as desired (e.g.,
-`e.dbjs(function (server) {server.query(table).all().modify(...)});`) with the
-exception that `close` is disallowed as this should not occur within the
-`upgradeneeded` event. Note, however, that due to limitations with Promises
+Note that the event object which is passed as the first argument to
+`addCallback` is the underlying IndexedDB event, but in `db.js`, we call
+these callbacks with a second argument which is the db.js `Server` object,
+allowing for db.js-style queries during the `upgradeneeded` event as
+desired (e.g.,
+`.addCallback(function (e, server) {server.query(table).all().modify(...)});`)
+with the exception that `close` is disallowed as this should not occur within
+the `upgradeneeded` event. Note, however, that due to limitations with Promises
 and the nature of the IndexedDB specification with regard to this event,
 you may need to avoid use of Promises within these callbacks (though you can
 run `addCallback` multiple times).

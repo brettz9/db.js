@@ -879,22 +879,35 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                     var _ret2 = function () {
                         var idbschema = void 0;
                         if (options.schemaBuilder) {
-                            idbschema = new _idbSchema2.default();
-                            try {
-                                options.schemaBuilder(idbschema);
-                                var idbschemaVersion = idbschema.version();
-                                if (options.version && idbschemaVersion < version) {
-                                    throw new Error('Your highest schema building (IDBSchema) version (' + idbschemaVersion + ') ' + 'must not be less than your designated version (' + version + ').');
-                                }
-                                if (!options.version && idbschemaVersion > version) {
-                                    version = idbschemaVersion;
-                                }
-                            } catch (e) {
-                                reject(e);
-                                return {
-                                    v: void 0
+                            var _ret3 = function () {
+                                idbschema = new _idbSchema2.default();
+                                var _addCallback = idbschema.addCallback;
+                                idbschema.addCallback = function (cb) {
+                                    function newCb(e) {
+                                        cb(e, idbschema._dbjs_server);
+                                    }
+                                    return _addCallback.call(idbschema, newCb);
                                 };
-                            }
+                                try {
+                                    options.schemaBuilder(idbschema);
+                                    var idbschemaVersion = idbschema.version();
+                                    if (options.version && idbschemaVersion < version) {
+                                        throw new Error('Your highest schema building (IDBSchema) version (' + idbschemaVersion + ') ' + 'must not be less than your designated version (' + version + ').');
+                                    }
+                                    if (!options.version && idbschemaVersion > version) {
+                                        version = idbschemaVersion;
+                                    }
+                                } catch (e) {
+                                    reject(e);
+                                    return {
+                                        v: {
+                                            v: void 0
+                                        }
+                                    };
+                                }
+                            }();
+
+                            if ((typeof _ret3 === 'undefined' ? 'undefined' : _typeof(_ret3)) === "object") return _ret3.v;
                         }
 
                         if (typeof schema === 'function') {
@@ -928,22 +941,19 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                         request.onupgradeneeded = function (e) {
                             if (idbschema) {
                                 try {
-                                    (function () {
-                                        var s = _open(e, server, version, noServerMethods, e.target.transaction);
-                                        delete s.close; // Closing should not be done in `upgradeneeded`
-                                        e.dbjs = function (cb) {
-                                            // returning a Promise here led to problems with Firefox which
-                                            //    would lose the upgrade transaction by the time the user
-                                            //    callback sought to use the Server in a (modify) query,
-                                            //    perhaps due to this: http://stackoverflow.com/a/28388805/271577
-                                            if (s instanceof Error) {
-                                                reject(s);
-                                                return;
-                                            }
-                                            cb(s);
-                                        };
-                                        idbschema.callback()(e);
-                                    })();
+                                    var _s = _open(e, server, version, noServerMethods, e.target.transaction);
+                                    if (_s instanceof Error) {
+                                        reject(_s);
+                                        return;
+                                    }
+                                    delete _s.close; // Closing should not be done in `upgradeneeded`
+
+                                    // Supplying a Promise here led to problems with Firefox which
+                                    //    would lose the upgrade transaction by the time the user
+                                    //    callback sought to use the Server in a (modify) query,
+                                    //    perhaps due to this: http://stackoverflow.com/a/28388805/271577
+                                    idbschema._dbjs_server = _s;
+                                    idbschema.callback()(e);
                                 } catch (idbError) {
                                     reject(idbError);
                                 }
