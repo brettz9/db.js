@@ -556,7 +556,8 @@ server.profiles.query('name')
 `modify` changes will be seen by any `map` functions.
 
 `modify` can be used after: `all`, `filter`, ranges (`range`, `only`,
-`bound`, `upperBound`, and `lowerBound`), `desc`, `distinct`, and `map`.
+`bound`, `upperBound`, and `lowerBound`), `desc`, `distinct`, `limit`,
+and `map`.
 
 ## Other server methods
 
