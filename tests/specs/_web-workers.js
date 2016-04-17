@@ -41,6 +41,7 @@
             tw.postMessage({dbName: this.dbName, message: 'web worker open', version: initialVersion});
         });
 
+        // Firefox is now failing here (due to our need to use babel-polyfill twice but skip error?)
         it('should open a created db in a service worker', function (done) {
             var spec = this;
             navigator.serviceWorker.register('test-worker.js').then(function () {

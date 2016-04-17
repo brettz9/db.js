@@ -41,7 +41,7 @@
                     .getStore('magazines')
                     .delIndex('byPublisher')
                     .addCallback(function (e, s) {
-                        s.books.query('byTitle').all().modify({
+                        return s.books.query('byTitle').all().modify({
                             textISBN: function (record) {
                                 return 'My ISBN: ' + (record.isbn || '(none)');
                             }

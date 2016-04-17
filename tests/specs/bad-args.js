@@ -124,7 +124,7 @@
                         }
                     }
                 }}).catch(function (err) {
-                    expect(err.name).to.equal('InvalidAccessError');
+                    expect(err.name).to.equal('InvalidAccessError'); // PhantomJS fails here, but this is correct per current and draft spec
                     done();
                 });
             });

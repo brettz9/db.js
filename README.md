@@ -76,25 +76,30 @@ a `keyPath` property on the provided parameter object. Note also that when a
 schema is supplied for a new version, any object stores not present on
 the schema object will be deleted unless `clearUnusedStores` is set to `false`
 (the latter may be necessary if you may be sharing the domain with applications
-building their own stores). Note that `schema` will have no effect if
-`schemaBuilder` is used.
+building their own stores).
+
+- *schemas* - `schemas` is keyed by version, and its component `schema` objects
+will be used to follow an incremental upgrade path. So, if the user was last on
+version 2 and now it is version 4, they will first be brought to version 3 and
+then 4, while, if they are already on version 4, no further upgrading will
+occur but the connection will open.
 
 - *schemaBuilder* - While the use of `schema` works more simply by deleting
 whatever stores existed before which no longer exist in `schema` and creating
 those which do not yet exist, `schemaBuilder` is a callback which will be
 passed an [idb-schema](https://github.com/treojs/idb-schema)
-object which allows for specifying an incremental path to upgrading a
-schema (as could be required if your users might have already opened say
-version 1 of your database and you have already made two upgrades to have
-a version 3 but the changes you have for version 2 must first be applied).
-Besides precise control of versioning (via `version()`) and, as with
-`schema`, the creating or deleting stores and indexes (via `addStore`,
-`delStore`, `getStore` (then `addIndex`, and `delIndex`)), `schemaBuilder`
-also offers `stores` for introspection on the existing stores and, more
-importantly, `addCallback` which is passed the `upgradeneeded` event and
-can be used for making queries such as modifying store values. See the
-[idb-schema](https://github.com/treojs/idb-schema) documentation for
-full details.
+object which allows (as with the plural `schemas` property) for specifying
+an incremental path to upgrading a schema (as could be required if your
+users might have already opened say version 1 of your database and you
+have already made two upgrades to have a version 3 but the changes you have
+for version 2 must first be applied). Besides precise control of versioning
+(via `version()`) and, as with `schema`, the creating or deleting stores
+and indexes (via `addStore`, `delStore`, `getStore` (then `addIndex`, and
+`delIndex`)), `schemaBuilder` also offers `stores` for introspection on the
+existing stores and, more importantly, `addCallback` which is passed the
+`upgradeneeded` event and can be used for making queries such as modifying
+store values. See the [idb-schema](https://github.com/treojs/idb-schema)
+documentation for full details.
 
 Note that the event object which is passed as the first argument to
 `addCallback` is the underlying IndexedDB event, but in `db.js`, we call

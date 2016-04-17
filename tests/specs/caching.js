@@ -44,17 +44,10 @@
             var spec = this;
             db.open({server: this.dbName, version: 1}).then(function (s) {
                 var db1 = s.getIndexedDB();
-                var caught = false;
-                db.open({server: spec.dbName, version: 2}).catch(function (err) {
-                    if (err.type === 'blocked') {
-                        s.close();
-                        caught = true;
-                        return err.resume;
-                    }
-                }).then(function (server) {
+                db.open({server: spec.dbName, version: 2})
+                .then(function (server) {
                     var db2 = server.getIndexedDB();
                     expect(db1).to.not.equal(db2);
-                    expect(caught).to.be.true;
                     server.close();
                     done();
                 });

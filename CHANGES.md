@@ -2,14 +2,18 @@
 
 ## Schema version (unreleased)
 
+- API addition: Support a `schemas` object keyed to version with values
+    as `schema` objects.
 - API addition: Support a `schemaBuilder` callback which accepts an
     [idb-schema](http://github.com/treojs/idb-schema) object for incremental,
     versioned schema building and whose `addCallback` method will be
     passed an enhanced `upgradeneeded` event object that will be passed a
     `Server` object as its second argument for making db.js-style queries
     (e.g., to modify store content). Addresses issues #84/#109
-- API addition: Support a `clearUnusedStores` property to conditionally avoid
-    deleting old stores.
+- API addition: If there is an upgrade problem, one can use a `retry` method
+    on the error event object
+- API addition: Support a `clearUnusedStores` option property to
+    conditionally avoid deleting old stores.
 - Documentation: Update `version` to take `schemaBuilder` into account
     (and document `schemaBuilder`).
 - Fix: Add Promise rejection for `update()`.
