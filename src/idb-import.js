@@ -2,6 +2,10 @@ self._babelPolyfill = false; // Need by Phantom in avoiding duplicate babel poly
 import IdbSchema from 'idb-schema';
 
 const hasOwn = Object.prototype.hasOwnProperty;
+const stringify = JSON.stringify;
+const compareStringified = (a, b) => {
+    return stringify(a) === stringify(b);
+};
 
 export default class IdbImport extends IdbSchema {
     constructor () {
@@ -39,6 +43,20 @@ export default class IdbImport extends IdbSchema {
                 if (db.objectStoreNames.contains(tableName)) {
                     store = transaction.objectStore(tableName); // Shouldn't throw
                     this.getStore(store);
+                    if (!['keyPath', 'autoIncrement'].every((storeProp) => {
+                        let canonicalPropValue;
+                        if (hasOwn.call(table, 'key')) { // Support old approach of db.js
+                            canonicalPropValue = table.key[storeProp];
+                        } else if (hasOwn.call(table, storeProp)) {
+                            canonicalPropValue = table[storeProp];
+                        } else {
+                            canonicalPropValue = storeProp === 'keyPath' ? null : false;
+                        }
+                        return compareStringified(canonicalPropValue, store[storeProp]);
+                    })) {
+                        this.delStore(tableName);
+                        throw new Error('goto catch to rebuild store');
+                    }
                 } else {
                     // Errors for which we are not concerned and why:
                     // `InvalidStateError` - We are in the upgrade transaction.
@@ -56,10 +74,23 @@ export default class IdbImport extends IdbSchema {
                 }
 
                 Object.keys(table.indexes || {}).some((indexKey) => {
+                    let index = table.indexes[indexKey];
                     try {
-                        store.index(indexKey);
+                        const oldIndex = store.index(indexKey);
+
+                        if (!['keyPath', 'unique', 'multiEntry'].every((indexProp) => {
+                            let canonicalPropValue;
+                            if (hasOwn.call(table, indexProp)) {
+                                canonicalPropValue = index[indexProp];
+                            } else {
+                                canonicalPropValue = indexProp === 'keyPath' ? null : false;
+                            }
+                            return compareStringified(canonicalPropValue, oldIndex[indexProp]);
+                        })) {
+                            this.delIndex(indexKey);
+                            throw new Error('goto catch to rebuild index');
+                        }
                     } catch (err) {
-                        let index = table.indexes[indexKey];
                         index = index && typeof index === 'object' ? index : {};
                         // Errors for which we are not concerned and why:
                         // `InvalidStateError` - We are in the upgrade transaction and store found above should not have already been deleted.

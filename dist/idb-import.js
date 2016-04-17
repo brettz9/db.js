@@ -25,6 +25,10 @@ self._babelPolyfill = false; // Need by Phantom in avoiding duplicate babel poly
 
 
 var hasOwn = Object.prototype.hasOwnProperty;
+var stringify = JSON.stringify;
+var compareStringified = function compareStringified(a, b) {
+    return stringify(a) === stringify(b);
+};
 
 var IdbImport = function (_IdbSchema) {
     _inherits(IdbImport, _IdbSchema);
@@ -71,6 +75,21 @@ var IdbImport = function (_IdbSchema) {
                     if (db.objectStoreNames.contains(tableName)) {
                         store = transaction.objectStore(tableName); // Shouldn't throw
                         _this2.getStore(store);
+                        if (!['keyPath', 'autoIncrement'].every(function (storeProp) {
+                            var canonicalPropValue = void 0;
+                            if (hasOwn.call(table, 'key')) {
+                                // Support old approach of db.js
+                                canonicalPropValue = table.key[storeProp];
+                            } else if (hasOwn.call(table, storeProp)) {
+                                canonicalPropValue = table[storeProp];
+                            } else {
+                                canonicalPropValue = storeProp === 'keyPath' ? null : false;
+                            }
+                            return compareStringified(canonicalPropValue, store[storeProp]);
+                        })) {
+                            _this2.delStore(tableName);
+                            throw new Error('goto catch to rebuild store');
+                        }
                     } else {
                         // Errors for which we are not concerned and why:
                         // `InvalidStateError` - We are in the upgrade transaction.
@@ -88,10 +107,25 @@ var IdbImport = function (_IdbSchema) {
                     }
 
                     Object.keys(table.indexes || {}).some(function (indexKey) {
+                        var index = table.indexes[indexKey];
                         try {
-                            store.index(indexKey);
+                            (function () {
+                                var oldIndex = store.index(indexKey);
+
+                                if (!['keyPath', 'unique', 'multiEntry'].every(function (indexProp) {
+                                    var canonicalPropValue = void 0;
+                                    if (hasOwn.call(table, indexProp)) {
+                                        canonicalPropValue = index[indexProp];
+                                    } else {
+                                        canonicalPropValue = indexProp === 'keyPath' ? null : false;
+                                    }
+                                    return compareStringified(canonicalPropValue, oldIndex[indexProp]);
+                                })) {
+                                    _this2.delIndex(indexKey);
+                                    throw new Error('goto catch to rebuild index');
+                                }
+                            })();
                         } catch (err) {
-                            var index = table.indexes[indexKey];
                             index = index && (typeof index === 'undefined' ? 'undefined' : _typeof(index)) === 'object' ? index : {};
                             // Errors for which we are not concerned and why:
                             // `InvalidStateError` - We are in the upgrade transaction and store found above should not have already been deleted.
@@ -7220,6 +7254,10 @@ function upgradeVersion(versionSchema, e, oldVersion) {
     cb(e);
   });
 
+  versionSchema.dropStores.forEach(function (s) {
+    db.deleteObjectStore(s.name);
+  });
+
   versionSchema.stores.forEach(function (s) {
     // Only pass the options that are explicitly specified to createObjectStore() otherwise IE/Edge
     // can throw an InvalidAccessError - see https://msdn.microsoft.com/en-us/library/hh772493(v=vs.85).aspx
@@ -7229,8 +7267,8 @@ function upgradeVersion(versionSchema, e, oldVersion) {
     db.createObjectStore(s.name, opts);
   });
 
-  versionSchema.dropStores.forEach(function (s) {
-    db.deleteObjectStore(s.name);
+  versionSchema.dropIndexes.forEach(function (i) {
+    tr.objectStore(i.storeName).deleteIndex(i.name);
   });
 
   versionSchema.indexes.forEach(function (i) {
@@ -7238,10 +7276,6 @@ function upgradeVersion(versionSchema, e, oldVersion) {
       unique: i.unique,
       multiEntry: i.multiEntry
     });
-  });
-
-  versionSchema.dropIndexes.forEach(function (i) {
-    tr.objectStore(i.storeName).deleteIndex(i.name);
   });
 }
 module.exports = exports['default'];

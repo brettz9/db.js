@@ -281,6 +281,23 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         };
     };
 
+    var setupTransactionAndStore = function setupTransactionAndStore(db, table, records, resolve, reject, readonly) {
+        var transaction = db.transaction(table, readonly ? transactionModes.readonly : transactionModes.readwrite);
+        transaction.onerror = function (e) {
+            // prevent throwing aborting (hard)
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
+            e.preventDefault();
+            reject(e);
+        };
+        transaction.onabort = function (e) {
+            return reject(e);
+        };
+        transaction.oncomplete = function () {
+            return resolve(records);
+        };
+        return transaction.objectStore(table);
+    };
+
     var Server = function Server(db, name, version, noServerMethods) {
         var _this2 = this;
 
@@ -313,21 +330,8 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                     return records.concat(aip);
                 }, []);
 
-                var transaction = db.transaction(table, transactionModes.readwrite);
-                transaction.onerror = function (e) {
-                    // prevent throwing a ConstraintError and aborting (hard)
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-                    e.preventDefault();
-                    reject(e);
-                };
-                transaction.onabort = function (e) {
-                    return reject(e);
-                };
-                transaction.oncomplete = function () {
-                    return resolve(records);
-                };
+                var store = setupTransactionAndStore(db, table, records, resolve, reject);
 
-                var store = transaction.objectStore(table);
                 records.some(function (record) {
                     var req = void 0,
                         key = void 0;
@@ -382,21 +386,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                     return records.concat(aip);
                 }, []);
 
-                var transaction = db.transaction(table, transactionModes.readwrite);
-                transaction.onerror = function (e) {
-                    // prevent throwing aborting (hard)
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-                    e.preventDefault();
-                    reject(e);
-                };
-                transaction.onabort = function (e) {
-                    return reject(e);
-                };
-                transaction.oncomplete = function () {
-                    return resolve(records);
-                };
-
-                var store = transaction.objectStore(table);
+                var store = setupTransactionAndStore(db, table, records, resolve, reject);
 
                 records.some(function (record) {
                     var req = void 0,
@@ -448,21 +438,8 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 }
                 key = mongoifyKey(key); // May throw
 
-                var transaction = db.transaction(table, transactionModes.readwrite);
-                transaction.onerror = function (e) {
-                    // prevent throwing and aborting (hard)
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-                    e.preventDefault();
-                    reject(e);
-                };
-                transaction.onabort = function (e) {
-                    return reject(e);
-                };
-                transaction.oncomplete = function () {
-                    return resolve(key);
-                };
+                var store = setupTransactionAndStore(db, table, key, resolve, reject);
 
-                var store = transaction.objectStore(table);
                 store.delete(key); // May throw
             });
         };
@@ -481,18 +458,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                     reject(new Error('Database has been closed'));
                     return;
                 }
-                var transaction = db.transaction(table, transactionModes.readwrite);
-                transaction.onerror = function (e) {
-                    return reject(e);
-                };
-                transaction.onabort = function (e) {
-                    return reject(e);
-                };
-                transaction.oncomplete = function () {
-                    return resolve();
-                };
-
-                var store = transaction.objectStore(table);
+                var store = setupTransactionAndStore(db, table, undefined, resolve, reject);
                 store.clear();
             });
         };
@@ -518,18 +484,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 }
                 key = mongoifyKey(key); // May throw
 
-                var transaction = db.transaction(table);
-                transaction.onerror = function (e) {
-                    // prevent throwing and aborting (hard)
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-                    e.preventDefault();
-                    reject(e);
-                };
-                transaction.onabort = function (e) {
-                    return reject(e);
-                };
-
-                var store = transaction.objectStore(table);
+                var store = setupTransactionAndStore(db, table, undefined, resolve, reject, true);
 
                 var req = store.get(key);
                 req.onsuccess = function (e) {
@@ -546,18 +501,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 }
                 key = mongoifyKey(key); // May throw
 
-                var transaction = db.transaction(table);
-                transaction.onerror = function (e) {
-                    // prevent throwing and aborting (hard)
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-                    e.preventDefault();
-                    reject(e);
-                };
-                transaction.onabort = function (e) {
-                    return reject(e);
-                };
-
-                var store = transaction.objectStore(table);
+                var store = setupTransactionAndStore(db, table, undefined, resolve, reject, true);
 
                 var req = key == null ? store.count() : store.count(key); // May throw
                 req.onsuccess = function (e) {
@@ -821,6 +765,10 @@ self._babelPolyfill = false; // Need by Phantom in avoiding duplicate babel poly
 
 
 var hasOwn = Object.prototype.hasOwnProperty;
+var stringify = JSON.stringify;
+var compareStringified = function compareStringified(a, b) {
+    return stringify(a) === stringify(b);
+};
 
 var IdbImport = function (_IdbSchema) {
     _inherits(IdbImport, _IdbSchema);
@@ -867,6 +815,21 @@ var IdbImport = function (_IdbSchema) {
                     if (db.objectStoreNames.contains(tableName)) {
                         store = transaction.objectStore(tableName); // Shouldn't throw
                         _this2.getStore(store);
+                        if (!['keyPath', 'autoIncrement'].every(function (storeProp) {
+                            var canonicalPropValue = void 0;
+                            if (hasOwn.call(table, 'key')) {
+                                // Support old approach of db.js
+                                canonicalPropValue = table.key[storeProp];
+                            } else if (hasOwn.call(table, storeProp)) {
+                                canonicalPropValue = table[storeProp];
+                            } else {
+                                canonicalPropValue = storeProp === 'keyPath' ? null : false;
+                            }
+                            return compareStringified(canonicalPropValue, store[storeProp]);
+                        })) {
+                            _this2.delStore(tableName);
+                            throw new Error('goto catch to rebuild store');
+                        }
                     } else {
                         // Errors for which we are not concerned and why:
                         // `InvalidStateError` - We are in the upgrade transaction.
@@ -884,10 +847,25 @@ var IdbImport = function (_IdbSchema) {
                     }
 
                     Object.keys(table.indexes || {}).some(function (indexKey) {
+                        var index = table.indexes[indexKey];
                         try {
-                            store.index(indexKey);
+                            (function () {
+                                var oldIndex = store.index(indexKey);
+
+                                if (!['keyPath', 'unique', 'multiEntry'].every(function (indexProp) {
+                                    var canonicalPropValue = void 0;
+                                    if (hasOwn.call(table, indexProp)) {
+                                        canonicalPropValue = index[indexProp];
+                                    } else {
+                                        canonicalPropValue = indexProp === 'keyPath' ? null : false;
+                                    }
+                                    return compareStringified(canonicalPropValue, oldIndex[indexProp]);
+                                })) {
+                                    _this2.delIndex(indexKey);
+                                    throw new Error('goto catch to rebuild index');
+                                }
+                            })();
                         } catch (err) {
-                            var index = table.indexes[indexKey];
                             index = index && (typeof index === 'undefined' ? 'undefined' : _typeof(index)) === 'object' ? index : {};
                             // Errors for which we are not concerned and why:
                             // `InvalidStateError` - We are in the upgrade transaction and store found above should not have already been deleted.
@@ -8016,6 +7994,10 @@ function upgradeVersion(versionSchema, e, oldVersion) {
     cb(e);
   });
 
+  versionSchema.dropStores.forEach(function (s) {
+    db.deleteObjectStore(s.name);
+  });
+
   versionSchema.stores.forEach(function (s) {
     // Only pass the options that are explicitly specified to createObjectStore() otherwise IE/Edge
     // can throw an InvalidAccessError - see https://msdn.microsoft.com/en-us/library/hh772493(v=vs.85).aspx
@@ -8025,8 +8007,8 @@ function upgradeVersion(versionSchema, e, oldVersion) {
     db.createObjectStore(s.name, opts);
   });
 
-  versionSchema.dropStores.forEach(function (s) {
-    db.deleteObjectStore(s.name);
+  versionSchema.dropIndexes.forEach(function (i) {
+    tr.objectStore(i.storeName).deleteIndex(i.name);
   });
 
   versionSchema.indexes.forEach(function (i) {
@@ -8034,10 +8016,6 @@ function upgradeVersion(versionSchema, e, oldVersion) {
       unique: i.unique,
       multiEntry: i.multiEntry
     });
-  });
-
-  versionSchema.dropIndexes.forEach(function (i) {
-    tr.objectStore(i.storeName).deleteIndex(i.name);
   });
 }
 module.exports = exports['default'];

@@ -236,6 +236,19 @@ import IdbImport from './idb-import';
         };
     };
 
+    const setupTransactionAndStore = (db, table, records, resolve, reject, readonly) => {
+        const transaction = db.transaction(table, readonly ? transactionModes.readonly : transactionModes.readwrite);
+        transaction.onerror = e => {
+            // prevent throwing aborting (hard)
+            // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
+            e.preventDefault();
+            reject(e);
+        };
+        transaction.onabort = e => reject(e);
+        transaction.oncomplete = () => resolve(records);
+        return transaction.objectStore(table);
+    };
+
     const Server = function (db, name, version, noServerMethods) {
         let closed = false;
 
@@ -258,17 +271,8 @@ import IdbImport from './idb-import';
                     return records.concat(aip);
                 }, []);
 
-                const transaction = db.transaction(table, transactionModes.readwrite);
-                transaction.onerror = e => {
-                    // prevent throwing a ConstraintError and aborting (hard)
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-                    e.preventDefault();
-                    reject(e);
-                };
-                transaction.onabort = e => reject(e);
-                transaction.oncomplete = () => resolve(records);
+                const store = setupTransactionAndStore(db, table, records, resolve, reject);
 
-                const store = transaction.objectStore(table);
                 records.some(function (record) {
                     let req, key;
                     if (isObject(record) && hasOwn.call(record, 'item')) {
@@ -318,17 +322,7 @@ import IdbImport from './idb-import';
                     return records.concat(aip);
                 }, []);
 
-                const transaction = db.transaction(table, transactionModes.readwrite);
-                transaction.onerror = e => {
-                    // prevent throwing aborting (hard)
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-                    e.preventDefault();
-                    reject(e);
-                };
-                transaction.onabort = e => reject(e);
-                transaction.oncomplete = () => resolve(records);
-
-                const store = transaction.objectStore(table);
+                const store = setupTransactionAndStore(db, table, records, resolve, reject);
 
                 records.some(function (record) {
                     let req, key;
@@ -379,17 +373,8 @@ import IdbImport from './idb-import';
                 }
                 key = mongoifyKey(key); // May throw
 
-                const transaction = db.transaction(table, transactionModes.readwrite);
-                transaction.onerror = e => {
-                    // prevent throwing and aborting (hard)
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-                    e.preventDefault();
-                    reject(e);
-                };
-                transaction.onabort = e => reject(e);
-                transaction.oncomplete = () => resolve(key);
+                const store = setupTransactionAndStore(db, table, key, resolve, reject);
 
-                const store = transaction.objectStore(table);
                 store.delete(key); // May throw
             });
         };
@@ -408,12 +393,7 @@ import IdbImport from './idb-import';
                     reject(new Error('Database has been closed'));
                     return;
                 }
-                const transaction = db.transaction(table, transactionModes.readwrite);
-                transaction.onerror = e => reject(e);
-                transaction.onabort = e => reject(e);
-                transaction.oncomplete = () => resolve();
-
-                const store = transaction.objectStore(table);
+                const store = setupTransactionAndStore(db, table, undefined, resolve, reject);
                 store.clear();
             });
         };
@@ -439,16 +419,7 @@ import IdbImport from './idb-import';
                 }
                 key = mongoifyKey(key); // May throw
 
-                const transaction = db.transaction(table);
-                transaction.onerror = e => {
-                    // prevent throwing and aborting (hard)
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-                    e.preventDefault();
-                    reject(e);
-                };
-                transaction.onabort = e => reject(e);
-
-                const store = transaction.objectStore(table);
+                const store = setupTransactionAndStore(db, table, undefined, resolve, reject, true);
 
                 const req = store.get(key);
                 req.onsuccess = e => resolve(e.target.result);
@@ -463,16 +434,7 @@ import IdbImport from './idb-import';
                 }
                 key = mongoifyKey(key); // May throw
 
-                const transaction = db.transaction(table);
-                transaction.onerror = e => {
-                    // prevent throwing and aborting (hard)
-                    // https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-                    e.preventDefault();
-                    reject(e);
-                };
-                transaction.onabort = e => reject(e);
-
-                const store = transaction.objectStore(table);
+                const store = setupTransactionAndStore(db, table, undefined, resolve, reject, true);
 
                 const req = key == null ? store.count() : store.count(key); // May throw
                 req.onsuccess = e => resolve(e.target.result);
