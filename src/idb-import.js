@@ -1,3 +1,10 @@
+/*
+TODOS:
+0. Support modified JSON Merge Patch type schemas: https://github.com/json-schema-org/json-schema-spec/issues/15#issuecomment-211142145
+1. Allow JSON Schema to be specified during import (and export): https://github.com/aaronpowell/db.js/issues/181
+2. Allow JSON Power Patch (including allowing copy/move to preserve store content): https://github.com/json-schema-org/json-schema-spec/issues/15#issuecomment-211142145
+*/
+
 self._babelPolyfill = false; // Need by Phantom in avoiding duplicate babel polyfill error
 import IdbSchema from 'idb-schema';
 
