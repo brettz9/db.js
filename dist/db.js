@@ -623,7 +623,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                         }
 
                         p = p.then(function () {
-                            Object.keys(schemas || {}).forEach(function (schemaVersion) {
+                            Object.keys(schemas || {}).sort().forEach(function (schemaVersion) {
                                 var schema = schemas[schemaVersion];
                                 if (typeof schema === 'function') {
                                     schema = schema(); // May throw

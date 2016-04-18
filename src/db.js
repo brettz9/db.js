@@ -546,7 +546,7 @@ import IdbImport from './idb-import';
                     }
 
                     p = p.then(() => {
-                        Object.keys(schemas || {}).forEach((schemaVersion) => {
+                        Object.keys(schemas || {}).sort().forEach((schemaVersion) => {
                             let schema = schemas[schemaVersion];
                             if (typeof schema === 'function') {
                                 schema = schema(); // May throw
