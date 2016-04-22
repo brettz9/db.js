@@ -51,6 +51,7 @@
     "idb-schema": "https://github.com/brettz9/idb-schema#tmp-publish",
     "jade": "^1.11.0",
     "jquery": "^2.2.2",
+    "json-pointer": "^0.5.0",
     "karma": "^0.13.21",
     "karma-mocha": "^0.2.2",
     "karma-phantomjs-launcher": "^1.0.0",

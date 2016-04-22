@@ -76,13 +76,29 @@ a `keyPath` property on the provided parameter object. Note also that when a
 schema is supplied for a new version, any object stores not present on
 the schema object will be deleted unless `clearUnusedStores` is set to `false`
 (the latter may be necessary if you may be sharing the domain with applications
-building their own stores).
+building their own stores) and any unused indexes will also be removed unless
+`clearUnusedIndexes` is set to `false`.
 
-- *schemas* - `schemas` is keyed by version, and its component `schema` objects
-will be used to follow an incremental upgrade path. So, if the user was last on
-version 2 and now it is version 4, they will first be brought to version 3 and
-then 4, while, if they are already on version 4, no further upgrading will
-occur but the connection will open.
+- *schemas* - `schemas` is keyed by version, and its values are, if
+`schemaType` is `"mixed"` (the default is `"power"`), objects whose keys are
+schema types (either `"whole"`, `"power"` or `"merge"`) and whose values are
+`schema` objects whose structure differs depending on the schema type. Where
+an object is expected, one may also use a function which resolves to a valid
+object. If the `schemaType` is not `"mixed"`, the version will be keyed to the
+schema object directly with no need to indicate type. The schema objects are
+used to follow an incremental upgrade path. So, if the user was last on version
+2 and now it is version 4, they will first be brought to version 3 and then 4,
+while, if they are already on version 4, no further upgrading will occur but
+the connection will open. The `doc` type merge behaves like `schema` (deleting
+all unreferenced stores or indexes, creating anew those stores or indexes which
+did not exist previously, and recreating those stores or indexes with
+differences). See the section on "Schema types" for the structure of these
+schema objects.
+
+- *schemaType* - Determines how `schemas` will be interpreted. Possible values
+are `"whole"`, `"power"`, `"merge"`, or `"mixed"`. The default is `"power"`.
+See the discussion under `schemas`. Note that if `schema` is used, it will
+behave as `"whole"`.
 
 - *schemaBuilder* - While the use of `schema` works more simply by deleting
 whatever stores existed before which no longer exist in `schema` and creating
@@ -148,6 +164,22 @@ db.open({
 ```
 
 Check out the `/tests/specs` folder for more examples.
+
+## Schema types
+
+Schemas can be expressed as one of the following types: `"whole"`,
+`"power"`, `"merge"`, or `"mixed"`. If `schema` is used, the type will
+automatically be `"whole"`. If `schemas` is used, the default will be
+`"power"` (the most expressive option), but this can be overridden
+with the `schemaType` property.
+
+### "Whole" type schemas
+
+### "Merge" type schemas
+
+### "Power" type schemas
+
+### "Mixed" type schemas
 
 ## General server/store methods
 
@@ -336,7 +368,7 @@ server.people
     });
 ```
 
-##### Querying with ranges
+##### Querying with ranges (and keys)
 
 All ranges supported by `IDBKeyRange` can be used (`only`,
 `bound`, `lowerBound`, `upperBound`).
@@ -379,7 +411,6 @@ your store with an array `keyPath` (and optionally with an index
 `keyPath`).
 
 ```js
-
 // The definition:
 schema: {
     people: {
@@ -396,11 +427,42 @@ schema: {
     }
 }
 
-// ...elsewhere...
+// ...elsewhere to add the data...
+s.people.add({lastName: 'Zamir', firstName: 'Brett'})
 
-// The query:
-s.test.query('name')
+// Then later, the query:
+s.people.query('name')
     .only(['Zamir', 'Brett'])
+    .execute()
+    .then(function (results) {
+        // do something with the results
+    });
+```
+
+Nested (dot-separated) key paths (with optional index)
+may also be queried:
+
+```js
+// The definition:
+schema: {
+    people: {
+        key: {
+            keyPath: 'person.name.lastName'
+        },
+        indexes: {
+            personName: {
+                keyPath: 'person.name.lastName'
+            }
+        }
+    }
+}
+
+// ...elsewhere to add the data...
+s.people.add({person: {name: {lastName: 'Zamir', firstName: 'Brett'}}})
+
+// Then later, the query:
+s.people.query('personName')
+    .only('Zamir')
     .execute()
     .then(function (results) {
         // do something with the results
