@@ -2,21 +2,38 @@
 
 ## Schema version (unreleased)
 
-- API addition: Support a `schemas` object keyed to version with values
-    as `schema` objects.
+- API change (breaking): Will delete unused indexes by default; set a new
+    property `clearUnusedIndexes` if not desired (when using `schema` or
+    `whole`-type `schema` objects within `schemas`)
+- API addition: Support a `clearUnusedStores` option property to
+    conditionally avoid deleting old stores (when using `schema` or
+    `whole`-type `schema` objects within `schemas`).
+- API addition: Support a `schemas` object. Its keys are the schema versions
+    and its values are--if `schemaType` is `"mixed"` (the default, unless
+    `schema` is used, in which case, it will be treated as `"whole"`)--arrays
+    containing an object whose single key is the schema type for that version
+    (either `"idb-schema"`, `"merge"`, or `"whole"`) and whose values are
+    `schema` objects whose structure differs depending on the schema type.
+    If `schemaType` is not `"mixed"` (`"whole"`, `"idb-schema"`, or `"merge"`),
+    each `schemas` key will be a schema version and its value a single
+    "schema object" (or, in the case of `"idb-schema"`, the function that
+    will be passed the `IdbSchema` instance). Where an object is expected,
+    one may also use a function which resolves to a valid object.
+- API addition: Support `moveFrom` and `copyFrom` for moving/copying a store
+    wholesale to another new store.
 - API addition: Support a `schemaBuilder` callback which accepts an
     [idb-schema](http://github.com/treojs/idb-schema) object for incremental,
     versioned schema building and whose `addCallback` method will be
     passed an enhanced `upgradeneeded` event object that will be passed a
     `Server` object as its second argument for making db.js-style queries
-    (e.g., to modify store content). Addresses issues #84/#109
+    (e.g., to modify store content). This option differs from `schemas` used
+    with `idb-schema` in that it adds the versions as well as stores and
+    indexes programmatically. Addresses issues #84/#109
 - API addition: If there is an upgrade problem, one can use a `retry` method
     on the error event object
-- API addition: Support a `clearUnusedStores` option property to
-    conditionally avoid deleting old stores.
+- Fix: Add Promise rejection for `update()`.
 - Documentation: Update `version` to take `schemaBuilder` into account
     (and document `schemaBuilder`).
-- Fix: Add Promise rejection for `update()`.
 
 ## Unreleased
 

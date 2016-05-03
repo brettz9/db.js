@@ -578,13 +578,22 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
             var server = options.server;
             var noServerMethods = options.noServerMethods;
             var clearUnusedStores = options.clearUnusedStores !== false;
+            var clearUnusedIndexes = options.clearUnusedIndexes !== false;
             var version = options.version || 1;
             var schema = options.schema;
             var schemas = options.schemas;
-
+            var schemaType = options.schemaType || (schema ? 'whole' : 'mixed');
             if (!dbCache[server]) {
                 dbCache[server] = {};
             }
+            var openDb = function openDb(db) {
+                var s = _open(db, server, version, noServerMethods);
+                if (s instanceof Error) {
+                    throw s;
+                }
+                return s;
+            };
+
             return new Promise(function (resolve, reject) {
                 if (dbCache[server][version]) {
                     var s = _open(dbCache[server][version], server, version, noServerMethods);
@@ -595,13 +604,6 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                     resolve(s);
                     return;
                 }
-                var openDb = function openDb(db) {
-                    var s = _open(db, server, version, noServerMethods);
-                    if (s instanceof Error) {
-                        throw s;
-                    }
-                    return s;
-                };
                 var idbimport = new _idbImport2.default();
                 var p = Promise.resolve();
                 if (schema || schemas || options.schemaBuilder) {
@@ -618,22 +620,23 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                             return _addCallback.call(idbimport, newCb);
                         };
 
-                        if (schema) {
-                            schemas = _defineProperty({}, version, schema);
-                        }
-
                         p = p.then(function () {
-                            Object.keys(schemas || {}).sort().forEach(function (schemaVersion) {
-                                var schema = schemas[schemaVersion];
-                                if (typeof schema === 'function') {
-                                    schema = schema(); // May throw
-                                }
-                                idbimport.createSchema(schema, parseInt(schemaVersion, 10), clearUnusedStores); // Could immediately throw with bad version
-                            });
                             if (options.schemaBuilder) {
                                 return options.schemaBuilder(idbimport);
                             }
                         }).then(function () {
+                            if (schema) {
+                                switch (schemaType) {
+                                    case 'mixed':case 'idb-schema':case 'merge':case 'whole':
+                                        {
+                                            schemas = _defineProperty({}, version, schema);
+                                            break;
+                                        }
+                                }
+                            }
+                            if (schemas) {
+                                idbimport.createVersionedSchema(schemas, schemaType, clearUnusedStores, clearUnusedIndexes);
+                            }
                             var idbschemaVersion = idbimport.version();
                             if (options.version && idbschemaVersion < version) {
                                 throw new Error('Your highest schema building (IDBSchema) version (' + idbschemaVersion + ') ' + 'must not be less than your designated version (' + version + ').');
@@ -745,6 +748,8 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 
+var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
+
 var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol ? "symbol" : typeof obj; };
 
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
@@ -761,11 +766,26 @@ function _possibleConstructorReturn(self, call) { if (!self) { throw new Referen
 
 function _inherits(subClass, superClass) { if (typeof superClass !== "function" && superClass !== null) { throw new TypeError("Super expression must either be null or a function, not " + typeof superClass); } subClass.prototype = Object.create(superClass && superClass.prototype, { constructor: { value: subClass, enumerable: false, writable: true, configurable: true } }); if (superClass) Object.setPrototypeOf ? Object.setPrototypeOf(subClass, superClass) : subClass.__proto__ = superClass; }
 
+/*
+# Notes
+
+1. Could use/adapt [jtlt](https://github.com/brettz9/jtlt/) for changing JSON data
+
+# Possible to-dos
+
+1. Support data within adapted JSON Merge Patch
+1. Allow JSON Schema to be specified during import (and export): https://github.com/aaronpowell/db.js/issues/181
+1. JSON format above database level to allow for deleting or moving/copying of whole databases
+1. `copyFrom`/`moveFrom` for indexes
+*/
+
 self._babelPolyfill = false; // Need by Phantom in avoiding duplicate babel polyfill error
 
 
-var hasOwn = Object.prototype.hasOwnProperty;
 var stringify = JSON.stringify;
+var hasOwn = function hasOwn(obj, prop) {
+    return Object.prototype.hasOwnProperty.call(obj, prop);
+};
 var compareStringified = function compareStringified(a, b) {
     return stringify(a) === stringify(b);
 };
@@ -780,108 +800,343 @@ var IdbImport = function (_IdbSchema) {
     }
 
     _createClass(IdbImport, [{
-        key: 'createSchema',
-        value: function createSchema(schema, version, clearUnusedStores) {
+        key: '_setup',
+        value: function _setup(schema, cb, mergePatch) {
             var _this2 = this;
 
-            if (!schema || (typeof schema === 'undefined' ? 'undefined' : _typeof(schema)) !== 'object') {
+            var isNUL = schema === '\0';
+            if (!schema || (typeof schema === 'undefined' ? 'undefined' : _typeof(schema)) !== 'object' && !(mergePatch && isNUL)) {
                 throw new Error('Bad schema object');
             }
-            this.version(version);
-
             this.addEarlyCallback(function (e) {
                 var db = e.target.result;
                 var transaction = e.target.transaction;
-
-                if (clearUnusedStores) {
-                    Array.from(db.objectStoreNames).forEach(function (name) {
-                        if (!hasOwn.call(schema, name)) {
-                            // Errors for which we are not concerned and why:
-                            // `InvalidStateError` - We are in the upgrade transaction.
-                            // `TransactionInactiveError` (as by the upgrade having already
-                            //      completed or somehow aborting) - since we've just started and
-                            //      should be without risk in this loop
-                            // `NotFoundError` - since we are iterating the dynamically updated
-                            //      `objectStoreNames`
-                            _this2._versions[version].dropStores.push({ name: name });
-                            // this.delStore(name); // Shouldn't throw // Uncomment this and delete previous line if this PR is accepted: https://github.com/treojs/idb-schema/pull/14
-                        }
-                    });
+                if (mergePatch && isNUL) {
+                    _this2._deleteAllUnused(db, transaction, {}, true);
+                    return;
                 }
+                return cb(e, db, transaction);
+            });
+        }
+    }, {
+        key: '_deleteIndexes',
+        value: function _deleteIndexes(transaction, storeName, exceptionIndexes) {
+            var _this3 = this;
 
-                Object.keys(schema).some(function (tableName) {
-                    var table = schema[tableName];
-                    var store = void 0;
-                    if (db.objectStoreNames.contains(tableName)) {
-                        store = transaction.objectStore(tableName); // Shouldn't throw
-                        _this2.getStore(store);
-                        if (!['keyPath', 'autoIncrement'].every(function (storeProp) {
-                            var canonicalPropValue = void 0;
-                            if (hasOwn.call(table, 'key')) {
-                                // Support old approach of db.js
-                                canonicalPropValue = table.key[storeProp];
-                            } else if (hasOwn.call(table, storeProp)) {
-                                canonicalPropValue = table[storeProp];
-                            } else {
-                                canonicalPropValue = storeProp === 'keyPath' ? null : false;
-                            }
-                            return compareStringified(canonicalPropValue, store[storeProp]);
-                        })) {
-                            _this2.delStore(tableName);
-                            throw new Error('goto catch to rebuild store');
-                        }
-                    } else {
+            var store = transaction.objectStore(storeName); // Shouldn't throw
+            Array.from(store.indexNames).forEach(function (indexName) {
+                if (!exceptionIndexes || !hasOwn(exceptionIndexes, indexName)) {
+                    _this3.delIndex(indexName);
+                }
+            });
+        }
+    }, {
+        key: '_deleteAllUnused',
+        value: function _deleteAllUnused(db, transaction, schema, clearUnusedStores, clearUnusedIndexes) {
+            var _this4 = this;
+
+            if (clearUnusedStores || clearUnusedIndexes) {
+                Array.from(db.objectStoreNames).forEach(function (storeName) {
+                    if (clearUnusedStores && !hasOwn(schema, storeName)) {
                         // Errors for which we are not concerned and why:
                         // `InvalidStateError` - We are in the upgrade transaction.
-                        // `ConstraintError` - We are just starting (and probably never too large anyways) for a key generator.
-                        // `ConstraintError` - The above condition should prevent the name already existing.
-                        //
-                        // Possible errors:
-                        // `TransactionInactiveError` - if the upgrade had already aborted,
-                        //      e.g., from a previous `QuotaExceededError` which is supposed to nevertheless return
-                        //      the store but then abort the transaction.
-                        // `SyntaxError` - if an invalid `table.key.keyPath` is supplied.
-                        // `InvalidAccessError` - if `table.key.autoIncrement` is `true` and `table.key.keyPath` is an
-                        //      empty string or any sequence (empty or otherwise).
-                        _this2.addStore(tableName, table.key); // May throw
+                        // `TransactionInactiveError` (as by the upgrade having already
+                        //      completed or somehow aborting) - since we've just started and
+                        //      should be without risk in this loop
+                        // `NotFoundError` - since we are iterating the dynamically updated
+                        //      `objectStoreNames`
+                        // this._versions[version].dropStores.push({name: storeName});
+                        // Avoid deleting if going to delete in a move/copy
+                        if (!Object.keys(schema).some(function (key) {
+                            return [schema[key].moveFrom, schema[key].copyFrom].includes(storeName);
+                        })) {
+                            _this4.delStore(storeName); // Shouldn't throw // Keep this and delete previous line if this PR is accepted: https://github.com/treojs/idb-schema/pull/14
+                        }
+                    } else if (clearUnusedIndexes) {
+                            _this4._deleteIndexes(transaction, storeName, schema[storeName].indexes);
+                        }
+                });
+            }
+        }
+    }, {
+        key: '_createStoreIfNotSame',
+        value: function _createStoreIfNotSame(db, transaction, schema, storeName, mergePatch) {
+            var newStore = schema[storeName];
+            var store = void 0;
+            var storeParams = {};
+            function setCanonicalProps(storeProp) {
+                var canonicalPropValue = void 0;
+                if (hasOwn(newStore, 'key')) {
+                    // Support old approach of db.js
+                    canonicalPropValue = newStore.key[storeProp];
+                } else if (hasOwn(newStore, storeProp)) {
+                    canonicalPropValue = newStore[storeProp];
+                } else {
+                    canonicalPropValue = storeProp === 'keyPath' ? null : false;
+                }
+                if (mergePatch && typeof canonicalPropValue === 'string') {
+                    if (canonicalPropValue === '\0') {
+                        canonicalPropValue = storeProp === 'keyPath' ? null : false;
+                    } else {
+                        canonicalPropValue = canonicalPropValue.replace(/^\0/, ''); // Remove escape if present
                     }
-
-                    Object.keys(table.indexes || {}).some(function (indexKey) {
-                        var index = table.indexes[indexKey];
-                        try {
-                            (function () {
-                                var oldIndex = store.index(indexKey);
-
-                                if (!['keyPath', 'unique', 'multiEntry'].every(function (indexProp) {
-                                    var canonicalPropValue = void 0;
-                                    if (hasOwn.call(table, indexProp)) {
-                                        canonicalPropValue = index[indexProp];
-                                    } else {
-                                        canonicalPropValue = indexProp === 'keyPath' ? null : false;
-                                    }
-                                    return compareStringified(canonicalPropValue, oldIndex[indexProp]);
-                                })) {
-                                    _this2.delIndex(indexKey);
-                                    throw new Error('goto catch to rebuild index');
-                                }
-                            })();
-                        } catch (err) {
-                            index = index && (typeof index === 'undefined' ? 'undefined' : _typeof(index)) === 'object' ? index : {};
+                }
+                storeParams[storeProp] = canonicalPropValue;
+            }
+            var copyFrom = newStore.copyFrom;
+            var moveFrom = newStore.moveFrom;
+            try {
+                ['keyPath', 'autoIncrement'].forEach(setCanonicalProps);
+                if (!db.objectStoreNames.contains(storeName)) {
+                    throw new Error('goto catch to build store');
+                }
+                store = transaction.objectStore(storeName); // Shouldn't throw
+                this.getStore(store);
+                if (!['keyPath', 'autoIncrement'].every(function (storeProp) {
+                    return compareStringified(storeParams[storeProp], store[storeProp]);
+                })) {
+                    // Avoid deleting if going to delete in a move/copy
+                    if (!copyFrom && !moveFrom) this.delStore(storeName);
+                    throw new Error('goto catch to build store');
+                }
+            } catch (err) {
+                if (err.message !== 'goto catch to build store') {
+                    throw err;
+                }
+                if (copyFrom) {
+                    this.copyStore(copyFrom, storeName, storeParams); // May throw
+                } else if (moveFrom) {
+                        this.renameStore(moveFrom, storeName, storeParams); // May throw
+                    } else {
                             // Errors for which we are not concerned and why:
-                            // `InvalidStateError` - We are in the upgrade transaction and store found above should not have already been deleted.
-                            // `ConstraintError` - We have already tried getting the index, so it shouldn't already exist
+                            // `InvalidStateError` - We are in the upgrade transaction.
+                            // `ConstraintError` - We are just starting (and probably never too large anyways) for a key generator.
+                            // `ConstraintError` - The above condition should prevent the name already existing.
                             //
                             // Possible errors:
                             // `TransactionInactiveError` - if the upgrade had already aborted,
                             //      e.g., from a previous `QuotaExceededError` which is supposed to nevertheless return
-                            //      the index object but then abort the transaction.
-                            // `SyntaxError` - If the `keyPath` (second argument) is an invalid key path
-                            // `InvalidAccessError` - If `multiEntry` on `index` is `true` and
-                            //                          `keyPath` (second argument) is a sequence
-                            _this2.addIndex(indexKey, index.keyPath || index.key || indexKey, index);
+                            //      the store but then abort the transaction.
+                            // `SyntaxError` - if an invalid `storeParams.keyPath` is supplied.
+                            // `InvalidAccessError` - if `storeParams.autoIncrement` is `true` and `storeParams.keyPath` is an
+                            //      empty string or any sequence (empty or otherwise).
+                            this.addStore(storeName, storeParams); // May throw
                         }
+            }
+            return [store, newStore];
+        }
+    }, {
+        key: '_createIndex',
+        value: function _createIndex(store, indexes, indexName, mergePatch) {
+            var _this5 = this;
+
+            var newIndex = indexes[indexName];
+            var indexParams = {};
+            function setCanonicalProps(indexProp) {
+                var canonicalPropValue = void 0;
+                if (hasOwn(newIndex, indexProp)) {
+                    canonicalPropValue = newIndex[indexProp];
+                } else {
+                    canonicalPropValue = indexProp === 'keyPath' ? null : false;
+                }
+                if (mergePatch && typeof canonicalPropValue === 'string') {
+                    if (canonicalPropValue === '\0') {
+                        canonicalPropValue = indexProp === 'keyPath' ? null : false;
+                    } else {
+                        canonicalPropValue = canonicalPropValue.replace(/^\0/, ''); // Remove escape if present
+                    }
+                }
+                indexParams[indexProp] = canonicalPropValue;
+            }
+            try {
+                (function () {
+                    ['keyPath', 'unique', 'multiEntry', 'locale'].forEach(setCanonicalProps);
+                    if (!store || !store.indexNames.contains(indexName)) {
+                        throw new Error('goto catch to build index');
+                    }
+                    var oldIndex = store.index(indexName);
+                    if (!['keyPath', 'unique', 'multiEntry', 'locale'].every(function (indexProp) {
+                        return compareStringified(indexParams[indexProp], oldIndex[indexProp]);
+                    })) {
+                        _this5.delIndex(indexName);
+                        throw new Error('goto catch to build index');
+                    }
+                })();
+            } catch (err) {
+                if (err.message !== 'goto catch to build index') {
+                    throw err;
+                }
+                // Errors for which we are not concerned and why:
+                // `InvalidStateError` - We are in the upgrade transaction and store found above should not have already been deleted.
+                // `ConstraintError` - We have already tried getting the index, so it shouldn't already exist
+                //
+                // Possible errors:
+                // `TransactionInactiveError` - if the upgrade had already aborted,
+                //      e.g., from a previous `QuotaExceededError` which is supposed to nevertheless return
+                //      the index object but then abort the transaction.
+                // `SyntaxError` - If the `keyPath` (second argument) is an invalid key path
+                // `InvalidAccessError` - If `multiEntry` on `index` is `true` and
+                //                          `keyPath` (second argument) is a sequence
+                this.addIndex(indexName, indexParams.keyPath !== null ? indexParams.keyPath : indexName, indexParams);
+            }
+        }
+    }, {
+        key: 'createIdbSchemaPatchSchema',
+        value: function createIdbSchemaPatchSchema(schema) {
+            schema(this); // May throw
+        }
+        // Modified JSON Merge Patch type schemas: https://github.com/json-schema-org/json-schema-spec/issues/15#issuecomment-211142145
+
+    }, {
+        key: 'createMergePatchSchema',
+        value: function createMergePatchSchema(schema) {
+            var _this6 = this;
+
+            this._setup(schema, function (e, db, transaction) {
+                Object.keys(schema).forEach(function (storeName) {
+                    var schemaObj = schema[storeName];
+                    var isNUL = schemaObj === '\0';
+                    if (isNUL) {
+                        _this6.delStore(storeName);
+                        return;
+                    }
+                    if (!schemaObj || (typeof schemaObj === 'undefined' ? 'undefined' : _typeof(schemaObj)) !== 'object') {
+                        throw new Error('Invalid merge patch schema object (type: ' + (typeof schemaObj === 'undefined' ? 'undefined' : _typeof(schemaObj)) + '): ' + schemaObj);
+                    }
+
+                    var _createStoreIfNotSame2 = _this6._createStoreIfNotSame(db, transaction, schema, storeName, true);
+
+                    var _createStoreIfNotSame3 = _slicedToArray(_createStoreIfNotSame2, 1);
+
+                    var store = _createStoreIfNotSame3[0];
+
+                    if (hasOwn(schemaObj, 'indexes')) {
+                        var _ret2 = function () {
+                            var indexes = schemaObj.indexes;
+                            var isNUL = indexes === '\0';
+                            if (isNUL) {
+                                _this6._deleteIndexes(transaction, storeName);
+                                return {
+                                    v: void 0
+                                };
+                            }
+                            if (!indexes || (typeof indexes === 'undefined' ? 'undefined' : _typeof(indexes)) !== 'object') {
+                                throw new Error('Invalid merge patch indexes object (type: ' + (typeof indexes === 'undefined' ? 'undefined' : _typeof(indexes)) + '): ' + indexes);
+                            }
+                            Object.keys(indexes).forEach(function (indexName) {
+                                var indexObj = indexes[indexName];
+                                var isNUL = indexObj === '\0';
+                                if (isNUL) {
+                                    _this6.delIndex(indexName);
+                                    return;
+                                }
+                                if (!indexObj || (typeof indexObj === 'undefined' ? 'undefined' : _typeof(indexObj)) !== 'object') {
+                                    throw new Error('Invalid merge patch index object (type: ' + (typeof indexObj === 'undefined' ? 'undefined' : _typeof(indexObj)) + '): ' + indexObj);
+                                }
+                                _this6._createIndex(store, indexes, indexName, true);
+                            });
+                        }();
+
+                        if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
+                    }
+                });
+            });
+        }
+    }, {
+        key: 'createWholePatchSchema',
+        value: function createWholePatchSchema(schema) {
+            var _this7 = this;
+
+            var clearUnusedStores = arguments.length <= 1 || arguments[1] === undefined ? true : arguments[1];
+            var clearUnusedIndexes = arguments.length <= 2 || arguments[2] === undefined ? true : arguments[2];
+
+            this._setup(schema, function (e, db, transaction) {
+                _this7._deleteAllUnused(db, transaction, schema, clearUnusedStores, clearUnusedIndexes);
+
+                Object.keys(schema).forEach(function (storeName) {
+                    var _createStoreIfNotSame4 = _this7._createStoreIfNotSame(db, transaction, schema, storeName);
+
+                    var _createStoreIfNotSame5 = _slicedToArray(_createStoreIfNotSame4, 2);
+
+                    var store = _createStoreIfNotSame5[0];
+                    var newStore = _createStoreIfNotSame5[1];
+
+                    var indexes = newStore.indexes;
+                    Object.keys(indexes || {}).forEach(function (indexName) {
+                        _this7._createIndex(store, indexes, indexName);
                     });
                 });
+            });
+        }
+    }, {
+        key: 'createVersionedSchema',
+        value: function createVersionedSchema(schemas, schemaType, clearUnusedStores, clearUnusedIndexes) {
+            var _this8 = this;
+
+            var createPatches = function createPatches(schemaObj, schemaType) {
+                switch (schemaType) {
+                    case 'mixed':
+                        {
+                            schemaObj.forEach(function (mixedObj) {
+                                var schemaType = Object.keys(mixedObj)[0];
+                                var schema = mixedObj[schemaType];
+                                if (schemaType !== 'idb-schema' && schema === 'function') {
+                                    schema = schema(_this8); // May throw
+                                }
+                                // These could immediately throw with a bad version
+                                switch (schemaType) {
+                                    case 'idb-schema':
+                                        {
+                                            // Function called above
+                                            _this8.createIdbSchemaPatchSchema(schema);
+                                            break;
+                                        }
+                                    case 'merge':
+                                        {
+                                            _this8.createMergePatchSchema(schema);
+                                            break;
+                                        }
+                                    case 'whole':
+                                        {
+                                            _this8.createWholePatchSchema(schema, clearUnusedStores, clearUnusedIndexes);
+                                            break;
+                                        }
+                                    case 'mixed':
+                                        {
+                                            createPatches(schema, schemaType);
+                                            break;
+                                        }
+                                    default:
+                                        throw new Error('Unrecognized schema type');
+                                }
+                            });
+                            break;
+                        }
+                    case 'merge':
+                        {
+                            _this8.createMergePatchSchema(schemaObj);
+                            break;
+                        }
+                    case 'idb-schema':
+                        {
+                            _this8.createIdbSchemaPatchSchema(schemaObj);
+                            break;
+                        }
+                    case 'whole':
+                        {
+                            _this8.createWholePatchSchema(schemaObj, clearUnusedStores, clearUnusedIndexes);
+                            break;
+                        }
+                }
+            };
+            Object.keys(schemas || {}).sort().forEach(function (schemaVersion) {
+                var version = parseInt(schemaVersion, 10);
+                var schemaObj = schemas[version];
+                if (schemaType !== 'idb-schema' && typeof schemaObj === 'function') {
+                    schemaObj = schemaObj(_this8); // May throw
+                }
+                _this8.version(version);
+                createPatches(schemaObj, schemaType, version);
             });
         }
     }]);
@@ -7429,8 +7684,10 @@ var values = Object.values;
 var isInteger = Number.isInteger;
 var localStorageExists = typeof window !== 'undefined' && window.localStorage;
 
-var getJSONStorage = function getJSONStorage(item, dflt) {
-  return JSON.parse(localStorage.getItem(item) || dflt || '{}');
+var getJSONStorage = function getJSONStorage(item) {
+  var dflt = arguments.length <= 1 || arguments[1] === undefined ? '{}' : arguments[1];
+
+  return JSON.parse(localStorage.getItem(item) || dflt);
 };
 var setJSONStorage = function setJSONStorage(item, value) {
   localStorage.setItem(item, JSON.stringify(value));
@@ -7457,22 +7714,33 @@ var Schema = function () {
     this.version(1);
   }
 
-  /**
-   * Get/Set new version.
-   *
-   * @param {Number} [version]
-   * @return {Schema|Number}
-   */
-
   _createClass(Schema, [{
+    key: 'lastEnteredVersion',
+    value: function lastEnteredVersion() {
+      return this._current.version;
+    }
+  }, {
+    key: 'setCurrentVersion',
+    value: function setCurrentVersion(version) {
+      this._current = { version: version, store: null };
+    }
+
+    /**
+     * Get/Set new version.
+     *
+     * @param {Number} [version]
+     * @return {Schema|Number}
+     */
+
+  }, {
     key: 'version',
     value: function version(_version) {
-      if (!arguments.length) return this._current.version;
-      if (!isInteger(_version) || _version < 1 || _version < this.version() || _version > MAX_VERSION) {
+      if (!arguments.length) return parseInt(Object.keys(this._versions).sort().pop(), 10);
+      if (!isInteger(_version) || _version < 1 || _version > MAX_VERSION) {
         throw new TypeError('invalid version');
       }
 
-      this._current = { version: _version, store: null };
+      this.setCurrentVersion(_version);
       this._versions[_version] = {
         stores: [], // db.createObjectStore
         dropStores: [], // db.deleteObjectStore
@@ -7490,24 +7758,45 @@ var Schema = function () {
      * Add store.
      *
      * @param {String} name
-     * @param {Object} [opts] { key: null, increment: false }
+     * @param {Object} [opts] { key: null, increment: false, copyFrom: null }
      * @return {Schema}
      */
 
   }, {
     key: 'addStore',
     value: function addStore(name) {
+      var _this = this;
+
       var opts = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
       if (typeof name !== 'string') throw new TypeError('"name" is required'); // idb-schema requirement
       if (this._stores[name]) throw new DOMException('"' + name + '" store is already defined', 'ConstraintError');
-
+      if ((0, _isPlainObj2.default)(opts) && (0, _isPlainObj2.default)(opts.copyFrom)) {
+        (function () {
+          var copyFrom = opts.copyFrom;
+          var copyFromName = copyFrom.name;
+          if (typeof copyFromName !== 'string') throw new TypeError('"copyFrom.name" is required when `copyFrom` is present'); // idb-schema requirement
+          if (_this._versions[_this.lastEnteredVersion()].dropStores.some(function (dropStore) {
+            return dropStore.name === copyFromName;
+          })) {
+            throw new TypeError('"copyFrom.name" must not be a store slated for deletion.'); // idb-schema requirement
+          }
+          if (copyFrom.deleteOld) {
+            var copyFromStore = _this._stores[copyFromName];
+            if (copyFromStore) {
+              // We don't throw here if non-existing since it may have been created outside of idb-schema
+              delete _this._stores[copyFromName];
+            }
+          }
+        })();
+      }
       var store = {
         name: name,
         indexes: {},
         keyPath: opts.key || opts.keyPath,
-        autoIncrement: opts.increment || opts.autoIncrement || false
-      };
+        autoIncrement: opts.increment || opts.autoIncrement || false,
+        copyFrom: opts.copyFrom || null };
+      // We don't check here for existence of a copyFrom store as might be copying from preexisting store
       if (!store.keyPath && store.keyPath !== '') {
         store.keyPath = null;
       }
@@ -7516,7 +7805,7 @@ var Schema = function () {
       }
 
       this._stores[name] = store;
-      this._versions[this.version()].stores.push(store);
+      this._versions[this.lastEnteredVersion()].stores.push(store);
       this._current.store = store;
 
       return this;
@@ -7533,15 +7822,63 @@ var Schema = function () {
     key: 'delStore',
     value: function delStore(name) {
       if (typeof name !== 'string') throw new TypeError('"name" is required'); // idb-schema requirement
+      this._versions[this.lastEnteredVersion()].stores.forEach(function (store) {
+        var copyFrom = store.copyFrom;
+        if ((0, _isPlainObj2.default)(copyFrom) && name === copyFrom.name) {
+          if (copyFrom.deleteOld) {
+            throw new TypeError('"name" is already slated for deletion'); // idb-schema requirement
+          }
+          throw new TypeError('set `deleteOld` on `copyFrom` to delete this store.'); // idb-schema requirement
+        }
+      });
       var store = this._stores[name];
       if (store) {
         delete this._stores[name];
       } else {
         store = { name: name };
       }
-      this._versions[this.version()].dropStores.push(store);
+      this._versions[this.lastEnteredVersion()].dropStores.push(store);
       this._current.store = null;
       return this;
+    }
+
+    /**
+     * Rename store.
+     *
+     * @param {String} oldName Old name
+     * @param {String} newName New name
+     * @param {Object} [opts] { key: null, increment: false }
+     * @return {Schema}
+    */
+
+  }, {
+    key: 'renameStore',
+    value: function renameStore(oldName, newName, options) {
+      return this.copyStore(oldName, newName, options, true);
+    }
+
+    /**
+     * Copy store.
+     *
+     * @param {String} oldName Old name
+     * @param {String} newName New name
+     * @param {Object} [opts] { key: null, increment: false }
+     * @param {Boolean} [deleteOld=false] Whether to delete the old store or not
+     * @return {Schema}
+    */
+
+  }, {
+    key: 'copyStore',
+    value: function copyStore(oldName, newName, options) {
+      var deleteOld = arguments.length <= 3 || arguments[3] === undefined ? false : arguments[3];
+
+      if (typeof oldName !== 'string') throw new TypeError('"oldName" is required'); // idb-schema requirement
+      if (typeof newName !== 'string') throw new TypeError('"newName" is required'); // idb-schema requirement
+
+      options = (0, _isPlainObj2.default)(options) ? _clone(options) : {};
+      options.copyFrom = { name: oldName, deleteOld: deleteOld, options: options };
+
+      return this.addStore(newName, options);
     }
 
     /**
@@ -7554,7 +7891,7 @@ var Schema = function () {
   }, {
     key: 'getStore',
     value: function getStore(name) {
-      var _this = this;
+      var _this2 = this;
 
       if (name && (typeof name === 'undefined' ? 'undefined' : _typeof(name)) === 'object' && 'name' in name && 'indexNames' in name) {
         (function () {
@@ -7574,9 +7911,10 @@ var Schema = function () {
               return obj;
             }, {}),
             keyPath: storeObj.keyPath,
-            autoIncrement: storeObj.autoIncrement
+            autoIncrement: storeObj.autoIncrement,
+            copyFrom: null
           };
-          _this._stores[name] = store;
+          _this2._stores[name] = store;
         })();
       }
       if (typeof name !== 'string') throw new DOMException('"name" is required', 'NotFoundError');
@@ -7615,7 +7953,7 @@ var Schema = function () {
         unique: opts.unique || false
       };
       store.indexes[name] = index;
-      this._versions[this.version()].indexes.push(index);
+      this._versions[this.lastEnteredVersion()].indexes.push(index);
 
       return this;
     }
@@ -7634,7 +7972,7 @@ var Schema = function () {
       var index = this._current.store.indexes[name];
       if (!index) throw new DOMException('"' + name + '" index is not defined', 'NotFoundError');
       delete this._current.store.indexes[name];
-      this._versions[this.version()].dropIndexes.push(index);
+      this._versions[this.lastEnteredVersion()].dropIndexes.push(index);
       return this;
     }
 
@@ -7649,13 +7987,13 @@ var Schema = function () {
   }, {
     key: 'addCallback',
     value: function addCallback(cb) {
-      this._versions[this.version()].callbacks.push(cb);
+      this._versions[this.lastEnteredVersion()].callbacks.push(cb);
       return this;
     }
   }, {
     key: 'addEarlyCallback',
     value: function addEarlyCallback(cb) {
-      this._versions[this.version()].earlyCallbacks.push(cb);
+      this._versions[this.lastEnteredVersion()].earlyCallbacks.push(cb);
       return this;
     }
 
@@ -7694,26 +8032,42 @@ var Schema = function () {
   }, {
     key: 'upgrade',
     value: function upgrade(dbName, version, keepOpen) {
-      var _this2 = this;
+      var _this3 = this;
 
-      var versionSchema = void 0;
+      var currentVersion = void 0;
       var versions = void 0;
       var afterOpen = void 0;
       var setVersions = function setVersions() {
-        versions = values(_this2._versions).sort(function (a, b) {
+        versions = values(_this3._versions).sort(function (a, b) {
           return a.version - b.version;
+        }).map(function (obj) {
+          return obj.version;
         }).values();
       };
+      var blockRecover = function blockRecover(reject) {
+        return function (err) {
+          if (err && err.type === 'blocked') {
+            reject(err);
+            return;
+          }
+          throw err;
+        };
+      };
       setVersions();
-      function thenableUpgradeVersion(dbLast, res, rej, start) {
+      var thenableUpgradeVersion = function thenableUpgradeVersion(dbLast, res, rej, start) {
         var lastVers = dbLast.version;
-        var versionIter = versions.next();
-        while (!versionIter.done && versionIter.value.version < lastVers) {
-          versionIter = versions.next();
+        var ready = true;
+        var lastGoodVersion = void 0;
+        var versionIter = void 0;
+        for (versionIter = versions.next(); !versionIter.done && versionIter.value <= lastVers; versionIter = versions.next()) {
+          lastGoodVersion = versionIter.value;
         }
-        versionSchema = versionIter.value;
-        if (versionIter.done || versionSchema.version > version) {
-          if (!keepOpen) {
+        currentVersion = versionIter.value;
+        if (versionIter.done || currentVersion > version) {
+          if (start !== undefined) {
+            currentVersion = lastGoodVersion;
+            afterOpen(dbLast, res, rej, start);
+          } else if (!keepOpen) {
             dbLast.close();
             res();
           } else {
@@ -7724,19 +8078,27 @@ var Schema = function () {
         dbLast.close();
 
         setTimeout(function () {
-          (0, _idbFactory.open)(dbName, versionSchema.version, upgradeneeded(function () {
+          (0, _idbFactory.open)(dbName, currentVersion, upgradeneeded(function () {
             for (var _len = arguments.length, dbInfo = Array(_len), _key = 0; _key < _len; _key++) {
               dbInfo[_key] = arguments[_key];
             }
 
-            upgradeVersion.apply(undefined, [versionSchema].concat(dbInfo));
+            ready = false;
+            upgradeVersion.call.apply(upgradeVersion, [_this3, currentVersion].concat(dbInfo, [function () {
+              ready = true;
+            }]));
           })).then(function (db) {
-            afterOpen(db, res, rej, start);
+            var intvl = setInterval(function () {
+              if (ready) {
+                clearInterval(intvl);
+                afterOpen(db, res, rej, start);
+              }
+            }, 100);
           }).catch(function (err) {
             rej(err);
           });
         });
-      }
+      };
       afterOpen = function afterOpen(db, res, rej, start) {
         // We run callbacks in `success` so promises can be used without fear of the (upgrade) transaction expiring
         var processReject = function processReject(err, callbackIndex) {
@@ -7744,15 +8106,15 @@ var Schema = function () {
           err.retry = function () {
             return new Promise(function (resolv, rejct) {
               var resolver = function resolver(item) {
-                _this2.flushIncomplete(dbName);
+                _this3.flushIncomplete(dbName);
                 resolv(item);
               };
               db.close();
               // db.transaction can't execute as closing by now, so we close and reopen
-              (0, _idbFactory.open)(dbName).catch(rejct).then(function (dbs) {
+              (0, _idbFactory.open)(dbName).catch(blockRecover(rejct)).then(function (dbs) {
                 setVersions();
                 thenableUpgradeVersion(dbs, resolver, rejct, callbackIndex);
-              });
+              }).catch(rejct);
             });
           };
           if (localStorageExists) {
@@ -7768,7 +8130,8 @@ var Schema = function () {
           rej(err);
         };
         var promise = Promise.resolve();
-        var complete = false;
+        var lastIndex = void 0;
+        var versionSchema = _this3._versions[currentVersion]; // We can safely cache as these callbacks do not need to access schema info
         var cbFailed = versionSchema.callbacks.some(function (cb, i) {
           if (start !== undefined && i < start) {
             return false;
@@ -7788,21 +8151,25 @@ var Schema = function () {
               return p.then(function () {
                 return cb2(db);
               });
-            }, ret).catch(function (err) {
-              processReject(err, i);
-            });
-            complete = true;
+            }, ret);
+            lastIndex = i;
             return true;
           }
         });
+        var complete = lastIndex !== undefined;
         if (cbFailed && !complete) return;
-        promise.then(function () {
+        promise = promise.then(function () {
           return thenableUpgradeVersion(db, res, rej);
         });
+        if (complete) {
+          promise = promise.catch(function (err) {
+            processReject(err, lastIndex);
+          });
+        }
       };
       // If needed, open higher versions until fully upgraded (noting any transaction failures)
       return new Promise(function (resolve, reject) {
-        version = version || _this2.version();
+        version = version || _this3.version();
         if (typeof version !== 'number' || version < 1) {
           reject(new Error('Bad version supplied for idb-schema upgrade'));
           return;
@@ -7815,24 +8182,24 @@ var Schema = function () {
           iudb = incompleteUpgrades[dbName];
         }
         if (iudb) {
-          var _ret2 = function () {
+          var _ret3 = function () {
             var err = new Error('An upgrade previously failed to complete for version: ' + iudb.version + ' due to reason: ' + iudb.error);
             err.badVersion = iudb.version;
             err.retry = function () {
               var versionIter = versions.next();
-              while (!versionIter.done && versionIter.value.version < err.badVersion) {
+              while (!versionIter.done && versionIter.value < err.badVersion) {
                 versionIter = versions.next();
               }
-              versionSchema = versionIter.value;
+              currentVersion = versionIter.value;
               return new Promise(function (resolv, rejct) {
                 var resolver = function resolver(item) {
-                  _this2.flushIncomplete(dbName);
+                  _this3.flushIncomplete(dbName);
                   resolv(item);
                 };
                 // If there was a prior failure, we don't need to worry about `upgradeneeded` yet
-                (0, _idbFactory.open)(dbName).catch(rejct).then(function (dbs) {
+                (0, _idbFactory.open)(dbName).catch(blockRecover(rejct)).then(function (dbs) {
                   afterOpen(dbs, resolver, rejct, iudb.callbackIndex);
-                });
+                }).catch(rejct);
               });
             };
             reject(err);
@@ -7841,38 +8208,42 @@ var Schema = function () {
             };
           }();
 
-          if ((typeof _ret2 === 'undefined' ? 'undefined' : _typeof(_ret2)) === "object") return _ret2.v;
+          if ((typeof _ret3 === 'undefined' ? 'undefined' : _typeof(_ret3)) === "object") return _ret3.v;
         }
+        var ready = true;
         var upgrade = upgradeneeded(function () {
           for (var _len2 = arguments.length, dbInfo = Array(_len2), _key2 = 0; _key2 < _len2; _key2++) {
             dbInfo[_key2] = arguments[_key2];
           }
 
           // Upgrade from 0 to version 1
+          ready = false;
           var versionIter = versions.next();
           if (versionIter.done) {
             throw new Error('No schema versions added for upgrade');
           }
-          versionSchema = versionIter.value;
-          upgradeVersion.apply(undefined, [versionSchema].concat(dbInfo));
+          currentVersion = versionIter.value;
+          upgradeVersion.call.apply(upgradeVersion, [_this3, currentVersion].concat(dbInfo, [function () {
+            ready = true;
+          }]));
         });
-        (0, _idbFactory.open)(dbName, upgrade).catch(function (err) {
-          if (err.type === 'blocked') {
-            reject(err);
-            return;
-          }
-          throw err;
-        }).then(function (db) {
-          if (version < db.version) {
-            db.close();
-            reject(new DOMException('The requested version (' + version + ') is less than the existing version (' + db.version + ').', 'VersionError'));
-            return;
-          }
-          if (!versionSchema) {
+        (0, _idbFactory.open)(dbName, upgrade).catch(blockRecover(reject)).then(function (db) {
+          var intvl = setInterval(function () {
+            if (!ready) {
+              return;
+            }
+            clearInterval(intvl);
+            if (version < db.version) {
+              db.close();
+              reject(new DOMException('The requested version (' + version + ') is less than the existing version (' + db.version + ').', 'VersionError'));
+              return;
+            }
+            if (currentVersion !== undefined) {
+              afterOpen(db, resolve, reject);
+              return;
+            }
             thenableUpgradeVersion(db, resolve, reject);
-            return;
-          }
-          afterOpen(db, resolve, reject);
+          }, 100);
         }).catch(function (err) {
           return reject(err);
         });
@@ -7887,26 +8258,52 @@ var Schema = function () {
 
   }, {
     key: 'callback',
-    value: function callback(errBack) {
+    value: function callback(_callback, errBack) {
+      var _this4 = this;
+
       var versions = values(this._versions).sort(function (a, b) {
         return a.version - b.version;
-      });
-      return upgradeneeded(function (e, oldVersion) {
-        versions.some(function (versionSchema) {
-          try {
-            upgradeVersion(versionSchema, e, oldVersion);
-            versionSchema.callbacks.forEach(function (cb) {
-              cb(e);
-            });
-          } catch (err) {
-            if (errBack) {
-              errBack(err, e);
-              return true;
-            }
-            throw err;
+      }).map(function (obj) {
+        return obj.version;
+      }).values();
+      var tryCatch = function tryCatch(e, cb) {
+        try {
+          cb();
+        } catch (err) {
+          if (errBack) {
+            errBack(err, e);
+            return true;
           }
+          throw err;
+        }
+      };
+      var upgrade = function upgrade(e, oldVersion) {
+        var versionIter = versions.next();
+        while (!versionIter.done && versionIter.value <= oldVersion) {
+          versionIter = versions.next();
+        }
+
+        if (versionIter.done) {
+          if (_callback) _callback(e);
+          return;
+        }
+        var version = versionIter.value;
+        var lev = _this4.lastEnteredVersion();
+
+        tryCatch(e, function () {
+          upgradeVersion.call(_this4, version, e, oldVersion, function () {
+            tryCatch(e, function () {
+              _this4._versions[version].callbacks.forEach(function (cb) {
+                _this4.setCurrentVersion(version); // Reset current version for callback to be able to operate on this version rather than the last added one
+                cb.call(_this4, e); // Call on `this` as can still modify schema in these callbacks
+              });
+              _this4.setCurrentVersion(lev);
+              upgrade(e, oldVersion);
+            });
+          });
         });
-      });
+      };
+      return upgradeneeded(upgrade);
     }
 
     /**
@@ -7938,11 +8335,11 @@ var Schema = function () {
   }, {
     key: 'clone',
     value: function clone() {
-      var _this3 = this;
+      var _this5 = this;
 
       var schema = new Schema();
       Object.keys(this).forEach(function (key) {
-        return schema[key] = _clone(_this3[key]);
+        return schema[key] = _clone(_this5[key]);
       });
       return schema;
     }
@@ -7984,39 +8381,96 @@ function upgradeneeded(cb) {
   };
 }
 
-function upgradeVersion(versionSchema, e, oldVersion) {
-  if (oldVersion >= versionSchema.version) return;
+function upgradeVersion(version, e, oldVersion, finishedCb) {
+  var _this6 = this;
+
+  if (oldVersion >= version) return;
 
   var db = e.target.result;
   var tr = e.target.transaction;
 
-  versionSchema.earlyCallbacks.forEach(function (cb) {
-    cb(e);
+  var lev = this.lastEnteredVersion();
+  this._versions[version].earlyCallbacks.forEach(function (cb) {
+    _this6.setCurrentVersion(version); // Reset current version for callback to be able to operate on this version rather than the last added one
+    cb.call(_this6, e);
   });
+  this.setCurrentVersion(lev);
 
+  // Now we can cache as no more callbacks to modify this._versions data
+  var versionSchema = this._versions[version];
   versionSchema.dropStores.forEach(function (s) {
     db.deleteObjectStore(s.name);
   });
 
-  versionSchema.stores.forEach(function (s) {
+  // We wait for addition of old data and then for the deleting of the old
+  //   store before iterating to add the next store (in case the user may
+  //   create a new store of the same name as an old deleted store)
+  var stores = versionSchema.stores.values();
+  function iterateStores() {
+    var storeIter = stores.next();
+    if (storeIter.done) {
+      versionSchema.dropIndexes.forEach(function (i) {
+        tr.objectStore(i.storeName).deleteIndex(i.name);
+      });
+
+      versionSchema.indexes.forEach(function (i) {
+        tr.objectStore(i.storeName).createIndex(i.name, i.field, {
+          unique: i.unique,
+          multiEntry: i.multiEntry
+        });
+      });
+      if (finishedCb) finishedCb();
+      return;
+    }
+    var s = storeIter.value;
+
     // Only pass the options that are explicitly specified to createObjectStore() otherwise IE/Edge
     // can throw an InvalidAccessError - see https://msdn.microsoft.com/en-us/library/hh772493(v=vs.85).aspx
     var opts = {};
-    if (s.keyPath !== null && s.keyPath !== undefined) opts.keyPath = s.keyPath;
-    if (s.autoIncrement) opts.autoIncrement = s.autoIncrement;
-    db.createObjectStore(s.name, opts);
-  });
+    var oldStoreName = void 0;
+    var oldObjStore = void 0;
+    if (s.copyFrom) {
+      // Store props not set yet as need reflection (and may be store not in idb-schema)
+      oldStoreName = s.copyFrom.name;
+      oldObjStore = tr.objectStore(oldStoreName);
+      var oldObjStoreOptions = s.copyFrom.options || {};
+      if (oldObjStoreOptions.keyPath !== null && oldObjStoreOptions.keyPath !== undefined) opts.keyPath = oldObjStoreOptions.keyPath;else if (oldObjStore.keyPath !== null && s.keyPath !== undefined) opts.keyPath = oldObjStore.keyPath;
+      if (oldObjStoreOptions.autoIncrement !== undefined) opts.autoIncrement = oldObjStoreOptions.autoIncrement;else if (oldObjStore.autoIncrement) opts.autoIncrement = oldObjStore.autoIncrement;
+    } else {
+      if (s.keyPath !== null && s.keyPath !== undefined) opts.keyPath = s.keyPath;
+      if (s.autoIncrement) opts.autoIncrement = s.autoIncrement;
+    }
 
-  versionSchema.dropIndexes.forEach(function (i) {
-    tr.objectStore(i.storeName).deleteIndex(i.name);
-  });
+    var newObjStore = db.createObjectStore(s.name, opts);
+    if (!s.copyFrom) {
+      iterateStores();
+      return;
+    }
+    var req = oldObjStore.getAll();
+    req.onsuccess = function () {
+      var oldContents = req.result;
+      var ct = 0;
 
-  versionSchema.indexes.forEach(function (i) {
-    tr.objectStore(i.storeName).createIndex(i.name, i.field, {
-      unique: i.unique,
-      multiEntry: i.multiEntry
-    });
-  });
+      if (!oldContents.length && s.copyFrom.deleteOld) {
+        db.deleteObjectStore(oldStoreName);
+        iterateStores();
+        return;
+      }
+      oldContents.forEach(function (oldContent) {
+        var addReq = newObjStore.add(oldContent);
+        addReq.onsuccess = function () {
+          ct++;
+          if (ct === oldContents.length) {
+            if (s.copyFrom.deleteOld) {
+              db.deleteObjectStore(oldStoreName);
+            }
+            iterateStores();
+          }
+        };
+      });
+    };
+  }
+  iterateStores();
 }
 module.exports = exports['default'];
 },{"./idb-factory":287,"babel-polyfill":3,"is-plain-obj":289}],289:[function(require,module,exports){
