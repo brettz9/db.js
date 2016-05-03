@@ -502,13 +502,22 @@ import IdbImport from './idb-import';
             const server = options.server;
             const noServerMethods = options.noServerMethods;
             const clearUnusedStores = options.clearUnusedStores !== false;
+            const clearUnusedIndexes = options.clearUnusedIndexes !== false;
             let version = options.version || 1;
             let schema = options.schema;
             let schemas = options.schemas;
-
+            let schemaType = options.schemaType || (schema ? 'whole' : 'mixed');
             if (!dbCache[server]) {
                 dbCache[server] = {};
             }
+            const openDb = function (db) {
+                const s = open(db, server, version, noServerMethods);
+                if (s instanceof Error) {
+                    throw s;
+                }
+                return s;
+            };
+
             return new Promise(function (resolve, reject) {
                 if (dbCache[server][version]) {
                     const s = open(dbCache[server][version], server, version, noServerMethods);
@@ -519,13 +528,6 @@ import IdbImport from './idb-import';
                     resolve(s);
                     return;
                 }
-                const openDb = function (db) {
-                    const s = open(db, server, version, noServerMethods);
-                    if (s instanceof Error) {
-                        throw s;
-                    }
-                    return s;
-                };
                 const idbimport = new IdbImport();
                 let p = Promise.resolve();
                 if (schema || schemas || options.schemaBuilder) {
@@ -541,22 +543,22 @@ import IdbImport from './idb-import';
                         return _addCallback.call(idbimport, newCb);
                     };
 
-                    if (schema) {
-                        schemas = {[version]: schema};
-                    }
-
                     p = p.then(() => {
-                        Object.keys(schemas || {}).sort().forEach((schemaVersion) => {
-                            let schema = schemas[schemaVersion];
-                            if (typeof schema === 'function') {
-                                schema = schema(); // May throw
-                            }
-                            idbimport.createSchema(schema, parseInt(schemaVersion, 10), clearUnusedStores); // Could immediately throw with bad version
-                        });
                         if (options.schemaBuilder) {
                             return options.schemaBuilder(idbimport);
                         }
                     }).then(() => {
+                        if (schema) {
+                            switch (schemaType) {
+                            case 'mixed': case 'idb-schema': case 'merge': case 'whole': {
+                                schemas = {[version]: schema};
+                                break;
+                            }
+                            }
+                        }
+                        if (schemas) {
+                            idbimport.createVersionedSchema(schemas, schemaType, clearUnusedStores, clearUnusedIndexes);
+                        }
                         const idbschemaVersion = idbimport.version();
                         if (options.version && idbschemaVersion < version) {
                             throw new Error(
