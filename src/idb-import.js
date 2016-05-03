@@ -17,6 +17,7 @@ import IdbSchema from 'idb-schema';
 const stringify = JSON.stringify;
 const hasOwn = (obj, prop) => Object.prototype.hasOwnProperty.call(obj, prop);
 const compareStringified = (a, b) => stringify(a) === stringify(b);
+const uniqueItems = (val, idx, self) => self.indexOf(val) === idx;
 
 export default class IdbImport extends IdbSchema {
     constructor () {
@@ -48,7 +49,9 @@ export default class IdbImport extends IdbSchema {
     }
     _deleteAllUnused (db, transaction, schema, clearUnusedStores, clearUnusedIndexes) {
         if (clearUnusedStores || clearUnusedIndexes) {
-            Array.from(db.objectStoreNames).forEach((storeName) => {
+            Array.from(db.objectStoreNames).concat(
+                this._versions[this.lastEnteredVersion()].stores.map((store) => store.name)
+            ).filter(uniqueItems).forEach((storeName) => {
                 if (clearUnusedStores && !hasOwn(schema, storeName)) {
                     // Errors for which we are not concerned and why:
                     // `InvalidStateError` - We are in the upgrade transaction.
@@ -91,7 +94,9 @@ export default class IdbImport extends IdbSchema {
         const moveFrom = newStore.moveFrom;
         try {
             ['keyPath', 'autoIncrement'].forEach(setCanonicalProps);
-            if (!db.objectStoreNames.contains(storeName)) {
+            if (!db.objectStoreNames.contains(storeName) &&
+                !this._versions[this.lastEnteredVersion()].stores.some((store) => store.name === storeName)
+            ) {
                 throw new Error('goto catch to build store');
             }
             store = transaction.objectStore(storeName); // Shouldn't throw
