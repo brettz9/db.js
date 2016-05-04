@@ -759,6 +759,18 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
             return new Promise(function (resolve, reject) {
                 resolve(indexedDB.cmp(param1, param2)); // May throw
             });
+        },
+
+        rangeIncludes: function rangeIncludes(range, key) {
+            return new Promise(function (resolve, reject) {
+                range = mongoifyKey(range); // May throw
+                if (!range || (typeof range === 'undefined' ? 'undefined' : _typeof(range)) !== 'object') {
+                    reject(new TypeError('Bad range supplied'));
+                    return;
+                }
+                key = mongoifyKey(key); // May throw
+                resolve(range.includes(key));
+            });
         }
     };
 

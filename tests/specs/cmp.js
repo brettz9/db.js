@@ -66,4 +66,35 @@
             });
         });
     });
+    describe('db.rangeIncludes', function () {
+        it('should catch errors', function () {
+            var caught = 0;
+            return db.rangeIncludes(null, IDBKeyRange.only(1)).catch(function (err) {
+                caught++;
+                expect(err.name).to.equal('TypeError');
+                return db.rangeIncludes(IDBKeyRange.only(1), null);
+            }).catch(function (err) {
+                caught++;
+                expect(err.name).to.equal('DataError');
+                return db.rangeIncludes({gte: 0, lte: 7}, {gte: 1, lte: 5});
+            }).catch(function (err) {
+                expect(err.name).to.equal('DataError');
+                expect(caught).to.equal(2);
+            });
+        });
+        it('should get successful results', function () {
+            return db.rangeIncludes({gte: 1}, 1).then(function (result) {
+                expect(result).to.equal(true);
+                return db.rangeIncludes({gte: 2}, 1);
+            }).then(function (result) {
+                expect(result).to.equal(false);
+                return db.rangeIncludes(IDBKeyRange.lowerBound(3), 4);
+            }).then(function (result) {
+                expect(result).to.equal(true);
+                return db.rangeIncludes(IDBKeyRange.lowerBound(4), 3);
+            }).then(function (result) {
+                expect(result).to.equal(false);
+            });
+        });
+    });
 }(window.db, window.describe, window.it, window.expect, window.beforeEach, window.afterEach));

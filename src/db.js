@@ -669,6 +669,18 @@ import batch, {transactionalBatch} from 'idb-batch';
             return new Promise(function (resolve, reject) {
                 resolve(indexedDB.cmp(param1, param2)); // May throw
             });
+        },
+
+        rangeIncludes: function (range, key) {
+            return new Promise(function (resolve, reject) {
+                range = mongoifyKey(range); // May throw
+                if (!range || typeof range !== 'object') {
+                    reject(new TypeError('Bad range supplied'));
+                    return;
+                }
+                key = mongoifyKey(key); // May throw
+                resolve(range.includes(key));
+            });
         }
     };
 
