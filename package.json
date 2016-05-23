@@ -58,7 +58,8 @@
     "karma-replacer-preprocessor": "0.0.1",
     "matchdep": "^1.0.1",
     "mocha": "^2.4.5",
-    "phantomjs-prebuilt": "^2.1.6"
+    "phantomjs-prebuilt": "^2.1.6",
+    "sync-promise": "https://github.com/brettz9/sync-promise#missing-promise-features"
   },
   "keywords": [
     "indexeddb"

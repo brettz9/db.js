@@ -13,6 +13,10 @@ var _idbBatch = require('idb-batch');
 
 var _idbBatch2 = _interopRequireDefault(_idbBatch);
 
+var _syncPromise = require('sync-promise');
+
+var _syncPromise2 = _interopRequireDefault(_syncPromise);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
@@ -96,13 +100,34 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         return key;
     }
 
+    // Safe to use timeout when sustaining a transaction is not needed
+    var timedResolve = function timedResolve(val, resolveOrReject) {
+        setTimeout(function () {
+            console.log(val);
+            resolveOrReject(val);
+        });
+    };
+    var closeError = function closeError(reject) {
+        timedResolve(new Error('Database has been closed'), reject);
+    };
+
+    var TimedErrorSyncPromise = function TimedErrorSyncPromise(cb) {
+        return new _syncPromise2.default(function (resolve, reject) {
+            try {
+                return cb(resolve, reject);
+            } catch (err) {
+                timedResolve(err, reject);
+            }
+        });
+    };
+
     var IndexQuery = function IndexQuery(table, db, indexName, preexistingError, trans) {
         var _this = this;
 
         var modifyObj = null;
 
         var runQuery = function runQuery(type, args, cursorType, direction, limitRange, filters, mapper) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 var keyRange = type ? IDBKeyRange[type].apply(IDBKeyRange, _toConsumableArray(args)) : null; // May throw
                 filters = filters || [];
                 limitRange = limitRange || null;
@@ -212,7 +237,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 
             var execute = function execute() {
                 if (error) {
-                    return Promise.reject(error);
+                    return new TimedErrorSyncPromise(function (res, rej) {
+                        throw error;
+                    });
                 }
                 return runQuery(type, args, cursorType, unique ? direction + 'unique' : direction, limitRange, filters, mapper);
             };
@@ -357,9 +384,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 args[_key - 1] = arguments[_key];
             }
 
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
 
@@ -413,9 +440,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                 args[_key2 - 1] = arguments[_key2];
             }
 
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
 
@@ -468,9 +495,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         };
 
         this.remove = function (table, key) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
                 key = mongoifyKey(key); // May throw
@@ -486,9 +513,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         };
 
         this.clear = function (table) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
                 var store = setupTransactionAndStore(db, table, undefined, resolve, reject);
@@ -497,22 +524,22 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         };
 
         this.close = function () {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
                 closed = true;
                 delete dbCache[name][version];
                 db.close();
-                resolve();
+                timedResolve(undefined, resolve);
             });
         };
 
         this.get = function (table, key) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
                 key = mongoifyKey(key); // May throw
@@ -527,9 +554,9 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         };
 
         this.count = function (table, key) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
                 key = mongoifyKey(key); // May throw
@@ -619,26 +646,61 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
             if (!dbCache[server]) {
                 dbCache[server] = {};
             }
-            var openDb = function openDb(db) {
-                var s = _open(db, server, version, noServerMethods);
-                if (s instanceof Error) {
-                    throw s;
-                }
-                return s;
-            };
 
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
+                var openDb = function openDb(db) {
+                    var s = _open(db, server, version, noServerMethods);
+                    if (s instanceof Error) {
+                        timedResolve(s, reject);
+                        return;
+                    }
+                    return s;
+                };
                 if (dbCache[server][version]) {
                     var s = _open(dbCache[server][version], server, version, noServerMethods);
                     if (s instanceof Error) {
-                        reject(s);
+                        timedResolve(s, reject);
                         return;
                     }
-                    resolve(s);
+                    timedResolve(s, resolve); // db should outlast a short timeout
                     return;
                 }
                 var idbimport = new _idbImport2.default();
-                var p = Promise.resolve();
+                var makeSyncPromiseResolve = function makeSyncPromiseResolve(val) {
+                    return {
+                        _val: val,
+                        catch: function _catch(errBack) {
+                            if (!this._catchState) {
+                                return this;
+                            }
+                            this._catchState = false;
+                            var ret = void 0;
+                            try {
+                                ret = errBack(this._val);
+                            } catch (err) {
+                                this._catchState = true;
+                                return this;
+                            }
+                            // We can afford to be synchronous here, as just a place-holder
+                            return ret && ret.then ? ret : makeSyncPromiseResolve(ret);
+                        },
+                        then: function then(cb) {
+                            if (this._catchState) {
+                                return this;
+                            }
+                            var ret = void 0;
+                            try {
+                                ret = cb(this._val);
+                            } catch (err) {
+                                this._catchState = true;
+                                return this;
+                            }
+                            // We can afford to be synchronous here, as just a place-holder
+                            return ret && ret.then ? ret : makeSyncPromiseResolve(ret);
+                        }
+                    };
+                };
+                var p = makeSyncPromiseResolve();
                 if (schema || schemas || options.schemaBuilder) {
                     (function () {
                         var _addCallback = idbimport.addCallback;
@@ -697,7 +759,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                     }
                     throw err;
                 }).then(openDb).then(resolve).catch(function (e) {
-                    reject(e);
+                    timedResolve(e, reject);
                 });
             });
         },
@@ -706,7 +768,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
             return this.delete(dbName);
         },
         delete: function _delete(dbName) {
-            return new Promise(function (resolve, reject) {
+            return new _syncPromise2.default(function (resolve, reject) {
                 var request = indexedDB.deleteDatabase(dbName); // Does not throw
 
                 request.onsuccess = function (e) {
@@ -726,7 +788,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
                     e = e.newVersion === null || typeof Proxy === 'undefined' ? e : new Proxy(e, { get: function get(target, name) {
                             return name === 'newVersion' ? null : target[name];
                         } });
-                    var resume = new Promise(function (res, rej) {
+                    var resume = new _syncPromise2.default(function (res, rej) {
                         // We overwrite handlers rather than make a new
                         //   delete() since the original request is still
                         //   open and its onsuccess will still fire if
@@ -756,8 +818,17 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
         },
 
         cmp: function cmp(param1, param2) {
-            return new Promise(function (resolve, reject) {
-                resolve(indexedDB.cmp(param1, param2)); // May throw
+            return new _syncPromise2.default(function (resolve, reject) {
+                setTimeout(function () {
+                    var res = void 0;
+                    try {
+                        res = indexedDB.cmp(param1, param2); // May throw
+                    } catch (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve(res);
+                });
             });
         }
     };
@@ -774,7 +845,7 @@ function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr
 })(self);
 
 
-},{"./idb-import":2,"idb-batch":287}],2:[function(require,module,exports){
+},{"./idb-import":2,"idb-batch":287,"sync-promise":293}],2:[function(require,module,exports){
 'use strict';
 
 Object.defineProperty(exports, "__esModule", {
@@ -8995,6 +9066,149 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 process.umask = function() { return 0; };
+
+},{}],293:[function(require,module,exports){
+function isPromise(p) {
+  return p && typeof p.then === 'function';
+}
+function addReject(prom, reject) {
+  prom.then(null, reject) // Use this style for sake of non-Promise thenables (e.g., jQuery Deferred)
+}
+
+// States
+var PENDING = 2,
+    FULFILLED = 0, // We later abuse these as array indices
+    REJECTED = 1;
+
+function SyncPromise(fn) {
+  var self = this;
+  self.v = 0; // Value, this will be set to either a resolved value or rejected reason
+  self.s = PENDING; // State of the promise
+  self.c = [[],[]]; // Callbacks c[0] is fulfillment and c[1] contains rejection callbacks
+  self.a = false; // Has the promise been resolved synchronously
+  var syncResolved = true;
+  function transist(val, state) {
+    self.a = syncResolved;
+    self.v = val;
+    self.s = state;
+    if (state === REJECTED && !self.c[state].length) {
+      throw val;
+    }
+    self.c[state].forEach(function(fn) { fn(val); });
+    self.c = null; // Release memory.
+  }
+  function resolve(val) {
+    if (!self.c) {
+      // Already resolved, do nothing.
+    } else if (isPromise(val)) {
+      addReject(val.then(resolve), reject);
+    } else {
+      transist(val, FULFILLED);
+    }
+  }
+  function reject(reason) {
+    if (!self.c) {
+      // Already resolved, do nothing.
+    } else if (isPromise(reason)) {
+      addReject(reason.then(reject), reject);
+    } else {
+      transist(reason, REJECTED);
+    }
+  }
+  fn(resolve, reject);
+  syncResolved = false;
+}
+
+var prot = SyncPromise.prototype;
+
+prot.then = function(cb, errBack) {
+  var self = this;
+  if (self.a) { // Promise has been resolved synchronously
+    throw new Error('Cannot call `then` on synchronously resolved promise');
+  }
+  return new SyncPromise(function(resolve, reject) {
+    var rej = typeof errBack === 'function' ? errBack : reject;
+    function settle() {
+      try {
+        resolve(cb ? cb(self.v) : self.v);
+      } catch(e) {
+        rej(e);
+      }
+    }
+    if (self.s === FULFILLED) {
+      settle();
+    } else if (self.s === REJECTED) {
+      rej(self.v);
+    } else {
+      self.c[FULFILLED].push(settle);
+      self.c[REJECTED].push(rej);
+    }
+  });
+};
+
+prot.catch = function(cb) {
+  var self = this;
+  if (self.a) { // Promise has been resolved synchronously
+    throw new Error('Cannot call `catch` on synchronously resolved promise');
+  }
+  return new SyncPromise(function(resolve, reject) {
+    function settle() {
+      try {
+        resolve(cb(self.v));
+      } catch(e) {
+        reject(e);
+      }
+    }
+    if (self.s === REJECTED) {
+      settle();
+    } else if (self.s === FULFILLED) {
+      resolve(self.v);
+    } else {
+      self.c[REJECTED].push(settle);
+      self.c[FULFILLED].push(resolve);
+    }
+  });
+};
+
+SyncPromise.all = function(promises) {
+  return new SyncPromise(function(resolve, reject, l) {
+    l = promises.length;
+    var hasPromises = false;
+    promises.forEach(function(p, i) {
+      if (isPromise(p)) {
+        hasPromises = true;
+        addReject(p.then(function(res) {
+          promises[i] = res;
+          --l || resolve(promises);
+        }), reject);
+      } else {
+        --l || (hasPromises ? resolve(promises) : (function () {
+          throw new Error('Must use at least one promise within `SyncPromise.all`');
+        }()));
+      }
+    });
+  });
+};
+
+SyncPromise.race = function(promises) {
+  var resolved = false;
+  return new SyncPromise(function(resolve, reject) {
+    promises.some(function(p, i) {
+      if (isPromise(p)) {
+        addReject(p.then(function(res) {
+          if (resolved) {
+            return;
+          }
+          resolve(res);
+          resolved = true;
+        }), reject);
+      } else {
+        throw new Error('Must use promises within `SyncPromise.race`');
+      }
+    });
+  });
+};
+module.exports = SyncPromise;
 
 },{}]},{},[1])(1)
 });

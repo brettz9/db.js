@@ -1,5 +1,6 @@
 import IdbImport from './idb-import';
 import batch, {transactionalBatch} from 'idb-batch';
+import SyncPromise from 'sync-promise';
 
 (function (local) {
     'use strict';
@@ -67,11 +68,32 @@ import batch, {transactionalBatch} from 'idb-batch';
         return key;
     }
 
+    // Safe to use timeout when sustaining a transaction is not needed
+    const timedResolve = (val, resolveOrReject) => {
+        setTimeout(() => {
+            console.log(val);
+            resolveOrReject(val);
+        });
+    };
+    const closeError = (reject) => {
+        timedResolve(new Error('Database has been closed'), reject);
+    };
+
+    const TimedErrorSyncPromise = function (cb) {
+        return new SyncPromise((resolve, reject) => {
+            try {
+                return cb(resolve, reject);
+            } catch (err) {
+                timedResolve(err, reject);
+            }
+        });
+    };
+
     const IndexQuery = function (table, db, indexName, preexistingError, trans) {
         let modifyObj = null;
 
         const runQuery = function (type, args, cursorType, direction, limitRange, filters, mapper) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 const keyRange = type ? IDBKeyRange[type](...args) : null; // May throw
                 filters = filters || [];
                 limitRange = limitRange || null;
@@ -165,7 +187,9 @@ import batch, {transactionalBatch} from 'idb-batch';
 
             const execute = function () {
                 if (error) {
-                    return Promise.reject(error);
+                    return new TimedErrorSyncPromise(function (res, rej) {
+                        throw error;
+                    });
                 }
                 return runQuery(type, args, cursorType, unique ? direction + 'unique' : direction, limitRange, filters, mapper);
             };
@@ -287,9 +311,9 @@ import batch, {transactionalBatch} from 'idb-batch';
         };
 
         this.add = function (table, ...args) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
 
@@ -338,9 +362,9 @@ import batch, {transactionalBatch} from 'idb-batch';
         };
 
         this.update = function (table, ...args) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
 
@@ -392,9 +416,9 @@ import batch, {transactionalBatch} from 'idb-batch';
         };
 
         this.remove = function (table, key) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
                 key = mongoifyKey(key); // May throw
@@ -410,9 +434,9 @@ import batch, {transactionalBatch} from 'idb-batch';
         };
 
         this.clear = function (table) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
                 const store = setupTransactionAndStore(db, table, undefined, resolve, reject);
@@ -421,22 +445,22 @@ import batch, {transactionalBatch} from 'idb-batch';
         };
 
         this.close = function () {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
                 closed = true;
                 delete dbCache[name][version];
                 db.close();
-                resolve();
+                timedResolve(undefined, resolve);
             });
         };
 
         this.get = function (table, key) {
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
                 key = mongoifyKey(key); // May throw
@@ -449,9 +473,9 @@ import batch, {transactionalBatch} from 'idb-batch';
         };
 
         this.count = function (table, key) {
-            return new Promise((resolve, reject) => {
+            return new TimedErrorSyncPromise((resolve, reject) => {
                 if (closed) {
-                    reject(new Error('Database has been closed'));
+                    closeError(reject);
                     return;
                 }
                 key = mongoifyKey(key); // May throw
@@ -532,26 +556,61 @@ import batch, {transactionalBatch} from 'idb-batch';
             if (!dbCache[server]) {
                 dbCache[server] = {};
             }
-            const openDb = function (db) {
-                const s = open(db, server, version, noServerMethods);
-                if (s instanceof Error) {
-                    throw s;
-                }
-                return s;
-            };
 
-            return new Promise(function (resolve, reject) {
+            return new TimedErrorSyncPromise(function (resolve, reject) {
+                const openDb = function (db) {
+                    const s = open(db, server, version, noServerMethods);
+                    if (s instanceof Error) {
+                        timedResolve(s, reject);
+                        return;
+                    }
+                    return s;
+                };
                 if (dbCache[server][version]) {
                     const s = open(dbCache[server][version], server, version, noServerMethods);
                     if (s instanceof Error) {
-                        reject(s);
+                        timedResolve(s, reject);
                         return;
                     }
-                    resolve(s);
+                    timedResolve(s, resolve); // db should outlast a short timeout
                     return;
                 }
                 const idbimport = new IdbImport();
-                let p = Promise.resolve();
+                const makeSyncPromiseResolve = (val) => {
+                    return {
+                        _val: val,
+                        catch: function (errBack) {
+                            if (!this._catchState) {
+                                return this;
+                            }
+                            this._catchState = false;
+                            let ret;
+                            try {
+                                ret = errBack(this._val);
+                            } catch (err) {
+                                this._catchState = true;
+                                return this;
+                            }
+                            // We can afford to be synchronous here, as just a place-holder
+                            return ret && ret.then ? ret : makeSyncPromiseResolve(ret);
+                        },
+                        then: function (cb) {
+                            if (this._catchState) {
+                                return this;
+                            }
+                            let ret;
+                            try {
+                                ret = cb(this._val);
+                            } catch (err) {
+                                this._catchState = true;
+                                return this;
+                            }
+                            // We can afford to be synchronous here, as just a place-holder
+                            return ret && ret.then ? ret : makeSyncPromiseResolve(ret);
+                        }
+                    };
+                };
+                let p = makeSyncPromiseResolve();
                 if (schema || schemas || options.schemaBuilder) {
                     const _addCallback = idbimport.addCallback;
                     idbimport.addCallback = function (cb) {
@@ -608,7 +667,7 @@ import batch, {transactionalBatch} from 'idb-batch';
                     }
                     throw err;
                 }).then(openDb).then(resolve).catch((e) => {
-                    reject(e);
+                    timedResolve(e, reject);
                 });
             });
         },
@@ -617,7 +676,7 @@ import batch, {transactionalBatch} from 'idb-batch';
             return this.delete(dbName);
         },
         delete: function (dbName) {
-            return new Promise(function (resolve, reject) {
+            return new SyncPromise(function (resolve, reject) {
                 const request = indexedDB.deleteDatabase(dbName); // Does not throw
 
                 request.onsuccess = e => {
@@ -636,7 +695,7 @@ import batch, {transactionalBatch} from 'idb-batch';
                     e = e.newVersion === null || typeof Proxy === 'undefined' ? e : new Proxy(e, {get: function (target, name) {
                         return name === 'newVersion' ? null : target[name];
                     }});
-                    const resume = new Promise(function (res, rej) {
+                    const resume = new SyncPromise(function (res, rej) {
                         // We overwrite handlers rather than make a new
                         //   delete() since the original request is still
                         //   open and its onsuccess will still fire if
@@ -666,8 +725,17 @@ import batch, {transactionalBatch} from 'idb-batch';
         },
 
         cmp: function (param1, param2) {
-            return new Promise(function (resolve, reject) {
-                resolve(indexedDB.cmp(param1, param2)); // May throw
+            return new SyncPromise(function (resolve, reject) {
+                setTimeout(function () {
+                    let res;
+                    try {
+                        res = indexedDB.cmp(param1, param2); // May throw
+                    } catch (err) {
+                        reject(err);
+                        return;
+                    }
+                    resolve(res);
+                });
             });
         }
     };
