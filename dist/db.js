@@ -7614,6 +7614,10 @@ var _isSafari = require('is-safari');
 
 var _isSafari2 = _interopRequireDefault(_isSafari);
 
+var _syncPromise = require('sync-promise');
+
+var _syncPromise2 = _interopRequireDefault(_syncPromise);
+
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
 function _toConsumableArray(arr) { if (Array.isArray(arr)) { for (var i = 0, arr2 = Array(arr.length); i < arr.length; i++) { arr2[i] = arr[i]; } return arr2; } else { return Array.from(arr); } }
@@ -7626,6 +7630,14 @@ function _defineProperty(obj, key, value) { if (key in obj) { Object.definePrope
 
 var slice = [].slice;
 var map = [].map;
+
+_syncPromise2.default.reject = function SyncPromiseReject(val) {
+  return new _syncPromise2.default(function (resolve, reject) {
+    setTimeout(function () {
+      reject(val);
+    });
+  });
+};
 
 /**
  * Perform batch operation for a single object store using `ops`.
@@ -7648,16 +7660,16 @@ var map = [].map;
  *
  * @param {Array|Object} ops Operations
  * @param {Object} opts See `transactionalBatch`
- * @return {Promise} Resolves to the result of the operations
+ * @return {SyncPromise} Resolves to the result of the operations
  */
 
 function batch(db, storeName, ops, opts) {
-  if (typeof storeName !== 'string') return Promise.reject(new TypeError('invalid "storeName"'));
-  if (![3, 4].includes(arguments.length)) return Promise.reject(new TypeError('invalid arguments length'));
+  if (typeof storeName !== 'string') return _syncPromise2.default.reject(new TypeError('invalid "storeName"'));
+  if (![3, 4].includes(arguments.length)) return _syncPromise2.default.reject(new TypeError('invalid arguments length'));
   try {
     validateAndCanonicalizeOps(ops);
   } catch (err) {
-    return Promise.reject(err);
+    return _syncPromise2.default.reject(err);
   }
   return transactionalBatch(db, _defineProperty({}, storeName, ops), opts).then(function (arr) {
     return arr[0][storeName];
@@ -7698,20 +7710,20 @@ function getStoreNames(storeOpsArr) {
  * @property {Boolean} [opts.resolveEarly=false] Whether or not to resolve the promise before the transaction ends
  * @property {Array} [opts.extraStores=[]] A list of store names to add to the transaction (when `tr` is an `IDBDatabase` object)
  * @property {Function} [opts.adapterCb=null] A callback which will be supplied the `tr` and function of a function-type operation)
- * @return {Promise} Resolves to an array containing the results of the operations for each store
+ * @return {SyncPromise} Resolves to an array containing the results of the operations for each store
  */
 
 function transactionalBatch(tr, storeOpsArr) {
   var opts = arguments.length <= 2 || arguments[2] === undefined ? { parallel: false, extraStores: [], resolveEarly: false, adapterCb: null } : arguments[2];
 
-  if (![2, 3].includes(arguments.length)) return Promise.reject(new TypeError('invalid arguments length'));
+  if (![2, 3].includes(arguments.length)) return _syncPromise2.default.reject(new TypeError('invalid arguments length'));
   if ((0, _isPlainObj2.default)(storeOpsArr)) storeOpsArr = [storeOpsArr];
   var storeOpsArrIter = storeOpsArr.keys();
   opts = opts || {};
   if (typeof tr.createObjectStore === 'function') {
     tr = tr.transaction(getStoreNames(storeOpsArr).concat(opts.extraStores || []), 'readwrite');
   }
-  return new Promise(function (resolve, reject) {
+  return new _syncPromise2.default(function (resolve, reject) {
     var results = [];
     tr.addEventListener('error', handleError(reject));
     tr.addEventListener('abort', handleError(reject));
@@ -7974,7 +7986,7 @@ function validateAndCanonicalizeOps(ops) {
   return ops;
 }
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"babel-polyfill":3,"is-plain-obj":290,"is-safari":291}],288:[function(require,module,exports){
+},{"babel-polyfill":3,"is-plain-obj":290,"is-safari":291,"sync-promise":293}],288:[function(require,module,exports){
 (function (global){
 'use strict';
 

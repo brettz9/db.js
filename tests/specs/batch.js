@@ -1,4 +1,4 @@
-/*global guid */
+/*global guid, SyncPromise */
 (function (db, describe, it, expect, beforeEach, afterEach) {
     'use strict';
 
@@ -53,6 +53,7 @@
             indexedDB.deleteDatabase(this.dbName);
             done();
         });
+
         describe('tableBatch()', function () {
             it('supports object syntax', function () {
                 var books = this.server.books;
@@ -376,13 +377,66 @@
                             { type: 'del', key: 2 }
                         ]
                     }, function callbackInTransaction (tr, s) {
+                        /*
                         // Transaction doesn't last long enough to chain these promises/add to separate op functions
-                        s.magazines
+                        function getRecord (tx, storeName, key) {
+                            var store = tx.objectStore(storeName);
+                            return new SyncPromise(function (resolve, reject) {
+                                var req = store.get(key);
+                                req.onsuccess = function () {
+                                    if (req.result !== undefined) {
+                                        resolve(req.result);
+                                    } else {
+                                        reject('KeyNotFoundError');
+                                    }
+                                };
+                                req.onerror = reject;
+                            });
+                        }
+                        function putRecord (tx, storeName, obj, key) {
+                            var store = tx.objectStore(storeName);
+                            return new SyncPromise(function (resolve, reject) {
+                                var req = store.put(obj, key);
+                                req.onsuccess = function () {
+                                    if (req.result !== undefined) {
+                                        resolve(req.result);
+                                    } else {
+                                        reject('KeyNotFoundError');
+                                    }
+                                };
+                                req.onerror = reject;
+                            });
+                        }
+
+                        return new SyncPromise(function (resolve, reject) {
+                            var req = indexedDB.open(spec.dbName);
+                            req.onsuccess = function (e) {
+                                var db = e.target.result;
+                                var tx = db.transaction('books', 'readwrite');
+                                putRecord(tx, 'books', {ISBN: '1234567890'}, 'Bedrock Nights').then(function () {
+                                    return putRecord(tx, 'books', {ISBN: '1844186395'}, 'Once Upon A Time');
+                                }).then(function () {
+                                    return getRecord(tx, 'books', 'Bedrock Nights');
+                                }).then(function (book) {
+                                    // We got the book, and the transaction is still open so we
+                                    // can make another request. Had `getRecord` used native promises
+                                    // the transaction whould have been closed by now.
+                                    console.log(book);
+                                    return getRecord(tx, 'books', 'Once Upon A Time');
+                                }).then(function (book) {
+                                    console.log(12);
+                                    console.log(book);
+                                });
+                            };
+                        });
+                        */
+                        return s.magazines
                             .query()
                             .only(3)
                             .modify({modified: true})
-                            .execute();
-                        return s.magazines.put({name: 'M4', frequency: 8});
+                            .execute().then(function () {
+                                return s.magazines.put({name: 'M4', frequency: 8});
+                            });
                     }
                 ]).then(function (res) {
                     r = res;
