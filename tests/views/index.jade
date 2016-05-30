@@ -2,6 +2,12 @@ extends layout
 
 append scripts
     script(src='../node_modules/jquery/dist/jquery.min.js')
+    script(src='../node_modules/indexeddbshim/dist/indexeddbshim.min.js')
+    script.
+        delete window.indexedDB; // Otherwise get an unable to shim error
+        window.shimIndexedDB.__useShim();
+        window.shimIndexedDB.__debug(true);
+
     script(src='specs/bad-args.js')
     script(src='specs/batch.js')
     script(src='specs/open-db.js')

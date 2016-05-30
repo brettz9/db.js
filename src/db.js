@@ -505,9 +505,9 @@ import batch, {transactionalBatch} from 'idb-batch';
             this[storeName] = {};
             const keys = Object.keys(this);
             keys.filter(key => !(([...serverEvents, 'close', 'batch', 'addEventListener', 'removeEventListener']).includes(key)))
-                .map(key =>
-                    this[storeName][key] = (...args) => this[key](storeName, ...args)
-                );
+                .forEach(key => {
+                    this[storeName][key] = (...args) => this[key](storeName, ...args);
+                });
         });
         return err;
     };
