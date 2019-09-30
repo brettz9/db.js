@@ -51,7 +51,7 @@ module.exports = function (grunt) {
                             platform: 'Windows 2008'
                         }]
                 },
-                onTestComplete: function (result, callback) {
+                onTestComplete (result, callback) {
                     console.dir(result);
                 }
             }

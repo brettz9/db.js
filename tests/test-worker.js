@@ -1,2 +1,44 @@
-"use strict";!function(){importScripts("/node_modules/babel-polyfill/dist/polyfill.js"),self._babelPolyfill=!1,importScripts("/dist/db.min.js"),self.onmessage=function(a){var b=a.data.dbName,c=a.data.message,d=a.data.version;switch(c){case"web worker open":db.open({server:b,version:d}).then(function(a){var b="undefined"!=typeof a;a.close(),postMessage(b)});break;case"service worker open":db.open({server:b,version:d}).then(function(b){var c="undefined"!=typeof b;b.close(),a.ports[0].postMessage(c)})}}}();
+"use strict";
+
+/* globals importScripts, db */
+(function () {
+  'use strict';
+
+  importScripts('/node_modules/@babel/polyfill/dist/polyfill.js');
+  self._babelPolyfill = false; // Hack for babel polyfill which checks for there being only one instance per this flag
+
+  importScripts('/dist/db.min.js');
+
+  self.onmessage = function (e) {
+    var dbName = e.data.dbName;
+    var msg = e.data.message;
+    var version = e.data.version;
+
+    switch (msg) {
+      case 'web worker open':
+        db.open({
+          server: dbName,
+          version: version
+        }).then(function (server) {
+          var result = typeof server !== 'undefined';
+          server.close(); // Prevent subsequent blocking
+
+          postMessage(result);
+        });
+        break;
+
+      case 'service worker open':
+        db.open({
+          server: dbName,
+          version: version
+        }).then(function (server) {
+          var result = typeof server !== 'undefined';
+          server.close(); // Prevent subsequent blocking
+
+          e.ports[0].postMessage(result);
+        });
+        break;
+    }
+  };
+})();
 //# sourceMappingURL=test-worker.js.map

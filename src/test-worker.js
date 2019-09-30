@@ -1,7 +1,7 @@
-/*global importScripts, db */
+/* globals importScripts, db */
 (function () {
     'use strict';
-    importScripts('/node_modules/babel-polyfill/dist/polyfill.js');
+    importScripts('/node_modules/@babel/polyfill/dist/polyfill.js');
     self._babelPolyfill = false; // Hack for babel polyfill which checks for there being only one instance per this flag
     importScripts('/dist/db.min.js');
     self.onmessage = function (e) {
@@ -14,7 +14,7 @@
                 server: dbName,
                 version: version
             }).then(function (server) {
-                let result = typeof server !== 'undefined';
+                const result = typeof server !== 'undefined';
                 server.close(); // Prevent subsequent blocking
                 postMessage(result);
             });
@@ -24,7 +24,7 @@
                 server: dbName,
                 version: version
             }).then(function (server) {
-                let result = typeof server !== 'undefined';
+                const result = typeof server !== 'undefined';
                 server.close(); // Prevent subsequent blocking
                 e.ports[0].postMessage(result);
             });

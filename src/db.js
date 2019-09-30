@@ -8,8 +8,8 @@ import batch, {transactionalBatch} from 'idb-batch';
     const indexedDB = local.indexedDB || local.webkitIndexedDB ||
         local.mozIndexedDB || local.oIndexedDB || local.msIndexedDB ||
         local.shimIndexedDB || (function () {
-            throw new Error('IndexedDB required');
-        }());
+        throw new Error('IndexedDB required');
+    }());
     const IDBKeyRange = local.IDBKeyRange || local.webkitIDBKeyRange;
 
     const defaultMapper = x => x;
@@ -55,7 +55,7 @@ import batch, {transactionalBatch} from 'idb-batch';
         case 'gt-lt': case 'gt-lte': case 'gte-lt': case 'gte-lte':
             return ['bound', [x, y, keys[0] === 'gt', keys[1] === 'lt']];
         default: throw new TypeError(
-          '`' + pattern + '` are conflicted keys'
+            '`' + pattern + '` are conflicted keys'
         );
         }
     }
@@ -138,7 +138,7 @@ import batch, {transactionalBatch} from 'idb-batch';
                                     counter++;
                                     // If we're doing a modify, run it now
                                     if (modifyObj) {
-                                        result = modifyRecord(result);  // May throw
+                                        result = modifyRecord(result); // May throw
                                         cursor.update(result); // May throw as `result` should only be a "structured clone"-able object
                                     }
                                     results.push(mapper(result)); // May throw
@@ -520,15 +520,15 @@ import batch, {transactionalBatch} from 'idb-batch';
 
     const db = {
         version: '0.15.0',
-        open: function (options) {
+        open (options) {
             const server = options.server;
             const noServerMethods = options.noServerMethods;
             const clearUnusedStores = options.clearUnusedStores !== false;
             const clearUnusedIndexes = options.clearUnusedIndexes !== false;
             let version = options.version || 1;
-            let schema = options.schema;
-            let schemas = options.schemas;
-            let schemaType = options.schemaType || (schema ? 'whole' : 'mixed');
+            const {schema} = options;
+            let {schemas} = options;
+            const schemaType = options.schemaType || (schema ? 'whole' : 'mixed');
             if (!dbCache[server]) {
                 dbCache[server] = {};
             }
@@ -613,10 +613,10 @@ import batch, {transactionalBatch} from 'idb-batch';
             });
         },
 
-        del: function (dbName) {
+        del (dbName) {
             return this.delete(dbName);
         },
-        delete: function (dbName) {
+        delete (dbName) {
             return new Promise(function (resolve, reject) {
                 const request = indexedDB.deleteDatabase(dbName); // Does not throw
 
@@ -633,9 +633,11 @@ import batch, {transactionalBatch} from 'idb-batch';
                 };
                 request.onblocked = e => {
                     // The following addresses part of https://bugzilla.mozilla.org/show_bug.cgi?id=1220279
-                    e = e.newVersion === null || typeof Proxy === 'undefined' ? e : new Proxy(e, {get: function (target, name) {
-                        return name === 'newVersion' ? null : target[name];
-                    }});
+                    e = e.newVersion === null || typeof Proxy === 'undefined' ? e : new Proxy(e, {
+                        get (target, name) {
+                            return name === 'newVersion' ? null : target[name];
+                        }
+                    });
                     const resume = new Promise(function (res, rej) {
                         // We overwrite handlers rather than make a new
                         //   delete() since the original request is still
@@ -665,13 +667,13 @@ import batch, {transactionalBatch} from 'idb-batch';
             });
         },
 
-        cmp: function (param1, param2) {
+        cmp (param1, param2) {
             return new Promise(function (resolve, reject) {
                 resolve(indexedDB.cmp(param1, param2)); // May throw
             });
         },
 
-        rangeIncludes: function (range, key) {
+        rangeIncludes (range, key) {
             return new Promise(function (resolve, reject) {
                 range = mongoifyKey(range); // May throw
                 if (!range || typeof range !== 'object') {

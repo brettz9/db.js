@@ -12,6 +12,8 @@
 */
 
 self._babelPolyfill = false; // Need by Phantom in avoiding duplicate babel polyfill error
+
+// eslint-disable-next-line import/first
 import IdbSchema from 'idb-schema';
 
 const stringify = JSON.stringify;
@@ -19,12 +21,9 @@ const hasOwn = (obj, prop) => Object.prototype.hasOwnProperty.call(obj, prop);
 const compareStringified = (a, b) => stringify(a) === stringify(b);
 
 export default class IdbImport extends IdbSchema {
-    constructor () {
-        super();
-    }
     _setup (schema, cb, mergePatch) {
         const isNUL = schema === '\0';
-        if (!schema || typeof schema !== 'object' && !(mergePatch && isNUL)) {
+        if (!schema || (typeof schema !== 'object' && !(mergePatch && isNUL))) {
             throw new Error('Bad schema object');
         }
         this.addEarlyCallback((e) => {
@@ -37,6 +36,7 @@ export default class IdbImport extends IdbSchema {
             return cb(e, db, transaction);
         });
     }
+
     _deleteIndexes (transaction, storeName, exceptionIndexes) {
         const store = transaction.objectStore(storeName); // Shouldn't throw
         Array.from(store.indexNames).forEach((indexName) => {
@@ -45,6 +45,7 @@ export default class IdbImport extends IdbSchema {
             }
         });
     }
+
     _deleteAllUnused (db, transaction, schema, clearUnusedStores, clearUnusedIndexes) {
         if (clearUnusedStores || clearUnusedIndexes) {
             Array.from(db.objectStoreNames).forEach((storeName) => {
@@ -67,10 +68,11 @@ export default class IdbImport extends IdbSchema {
             });
         }
     }
+
     _createStoreIfNotSame (db, transaction, schema, storeName, mergePatch) {
         const newStore = schema[storeName];
         let store;
-        let storeParams = {};
+        const storeParams = {};
         function setCanonicalProps (storeProp) {
             let canonicalPropValue;
             if (hasOwn(newStore, 'key')) { // Support old approach of db.js
@@ -131,9 +133,10 @@ export default class IdbImport extends IdbSchema {
         }
         return [store, newStore];
     }
+
     _createIndex (store, indexes, indexName, mergePatch) {
-        let newIndex = indexes[indexName];
-        let indexParams = {};
+        const newIndex = indexes[indexName];
+        const indexParams = {};
         function setCanonicalProps (indexProp) {
             let canonicalPropValue;
             if (hasOwn(newIndex, indexProp)) {
@@ -180,9 +183,11 @@ export default class IdbImport extends IdbSchema {
             this.addIndex(indexName, indexParams.keyPath !== null ? indexParams.keyPath : indexName, indexParams);
         }
     }
+
     createIdbSchemaPatchSchema (schema) {
         schema(this); // May throw
     }
+
     // Modified JSON Merge Patch type schemas: https://github.com/json-schema-org/json-schema-spec/issues/15#issuecomment-211142145
     createMergePatchSchema (schema) {
         this._setup(schema, (e, db, transaction) => {
@@ -223,6 +228,7 @@ export default class IdbImport extends IdbSchema {
             });
         });
     }
+
     createWholePatchSchema (schema, clearUnusedStores = true, clearUnusedIndexes = true) {
         this._setup(schema, (e, db, transaction) => {
             this._deleteAllUnused(db, transaction, schema, clearUnusedStores, clearUnusedIndexes);
@@ -236,6 +242,7 @@ export default class IdbImport extends IdbSchema {
             });
         });
     }
+
     createVersionedSchema (schemas, schemaType, clearUnusedStores, clearUnusedIndexes) {
         const createPatches = (schemaObj, schemaType) => {
             switch (schemaType) {

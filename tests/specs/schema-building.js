@@ -1,4 +1,4 @@
-/*global window, guid*/
+/* globals window, guid */
 (function (db, describe, it, expect, beforeEach, afterEach) {
     'use strict';
     describe('schema-building', function () {
@@ -52,7 +52,7 @@
                     1: {
                         oldStore: {},
                         person: {},
-                        addresses: {'keyPath': 'old'},
+                        addresses: {keyPath: 'old'},
                         phoneNumbers: {}
                     },
                     2: {
@@ -82,7 +82,7 @@
                     1: {
                         oldStore: {},
                         person: {},
-                        addresses: {'keyPath': 'old'},
+                        addresses: {keyPath: 'old'},
                         phoneNumbers: {}
                     },
                     2: {
@@ -110,8 +110,8 @@
                 var spec = this;
                 var schemas = {
                     1: [
-                        {'whole': {
-                            addresses: {'keyPath': 'old'},
+                        {whole: {
+                            addresses: {keyPath: 'old'},
                             phoneNumbers: {}
                         }},
                         {'idb-schema': function (idbschema) {
